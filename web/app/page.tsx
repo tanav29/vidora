@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Play, ArrowRight } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 const features = [
   { title: "Simple uploads", desc: "Drag, drop, and go" },
@@ -8,7 +10,11 @@ const features = [
   { title: "Shareable links", desc: "Instant playback URLs" },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
   return (
     <div className="relative min-h-screen">
       <div className="mx-auto max-w-5xl px-6 py-16">
@@ -21,9 +27,15 @@ export default function LandingPage() {
             <span className="font-semibold text-sm">vidora</span>
           </Link>
 
-          <Button asChild size="sm">
-            <Link href="/home">Get started</Link>
-          </Button>
+          {session?.user ? (
+            <Button asChild size="sm">
+              <Link href="/home">Dashboard</Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm">
+              <Link href="/login">Login</Link>
+            </Button>
+          )}
         </header>
 
         {/* Hero */}
@@ -33,19 +45,32 @@ export default function LandingPage() {
           </h1>
 
           <p className="mx-auto mt-4 max-w-lg text-muted-foreground">
-            Upload, transcode, and share your videos with a clean, fast dashboard.
+            Upload, transcode, and share your videos with a clean, fast
+            dashboard.
           </p>
 
           <div className="mt-8 flex items-center justify-center gap-3">
-            <Button asChild size="lg" className="gap-2">
-              <Link href="/home">
-                Start uploading
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href="/home">View dashboard</Link>
-            </Button>
+            {session?.user ? (
+              <Button asChild size="lg" className="gap-2">
+                <Link href="/upload">
+                  Start uploading
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="lg" className="gap-2">
+                <Link href="/login">
+                  Get Started
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+
+            {session?.user && (
+              <Button asChild variant="outline" size="lg">
+                <Link href="/home">View dashboard</Link>
+              </Button>
+            )}
           </div>
         </section>
 
@@ -57,7 +82,6 @@ export default function LandingPage() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                   <Play className="h-5 w-5 text-muted-foreground fill-muted-foreground" />
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">Video preview</p>
               </div>
             </div>
           </div>
@@ -80,7 +104,7 @@ export default function LandingPage() {
             <Link href="/home" className="hover:text-foreground">
               Dashboard
             </Link>
-            <Link href="/home" className="hover:text-foreground">
+            <Link href="/upload" className="hover:text-foreground">
               Upload
             </Link>
           </div>

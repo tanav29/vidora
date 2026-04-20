@@ -23,7 +23,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className={cn("font-sans antialiased dark", geistMono.variable, geist.variable)}>
+      <body
+        className={cn(
+          "font-sans antialiased dark",
+          geistMono.variable,
+          geist.variable,
+        )}>
         <Providers>{children}</Providers>
         <Toaster />
         <Analytics />

@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -52,6 +52,8 @@ model Account {
   password              String?
   createdAt             DateTime  @db.Timestamptz(3)
   updatedAt             DateTime  @db.Timestamptz(3)
+
+  @@index([userId])
 }
 
 model Session {
@@ -64,6 +66,8 @@ model Session {
   userAgent String?
   createdAt DateTime @db.Timestamptz(3)
   updatedAt DateTime @db.Timestamptz(3)
+
+  @@index([userId])
 }
 
 model Verification {
@@ -73,4 +77,6 @@ model Verification {
   expiresAt  DateTime @db.Timestamptz(3)
   createdAt  DateTime @db.Timestamptz(3)
   updatedAt  DateTime @db.Timestamptz(3)
+
+  @@index([identifier])
 }
