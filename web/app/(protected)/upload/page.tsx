@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -71,7 +71,9 @@ export default function Page() {
       <PageShell title="Upload" description="Add a new video">
         <div className="mx-auto max-w-2xl space-y-6">
           <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight">Video details</h2>
+            <h2 className="text-base font-semibold tracking-tight">
+              Video details
+            </h2>
             <p className="text-sm text-muted-foreground">
               Fill in the information about your video.
             </p>
@@ -116,7 +118,9 @@ export default function Page() {
                     <CheckCircle2 className="w-5 h-5 text-green-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{file.name}</p>
+                    <p className="font-medium text-foreground truncate">
+                      {file.name}
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       {(file.size / (1024 * 1024)).toFixed(2)} MB
                     </p>
@@ -125,8 +129,7 @@ export default function Page() {
                     variant="ghost"
                     size="icon"
                     onClick={removeFile}
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -162,8 +165,7 @@ export default function Page() {
               disabled={!file || !title.trim() || isPending || isSuccess}
               size="lg"
               className="w-full gap-2"
-              onClick={() => uploadVideo()}
-            >
+              onClick={() => uploadVideo()}>
               {isSuccess ? (
                 <>
                   <CheckCircle2 className="w-4 h-4" />

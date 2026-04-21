@@ -385,22 +385,32 @@ async function processJob(job: Job) {
   }
 }
 
-async function claimNextJob() {
-  const rawJob = await redis.lpop("video-queue");
-  const job = parseJob(rawJob);
-  if (!job) {
-    return;
+async function claimNextJob(): Promise<{ job: Job; index: number } | null> {
+  const queueLen = await redis.llen("video-queue");
+  if (queueLen === 0) return null;
+
+  for (let i = 0; i < queueLen; i++) {
+    const rawJob = await redis.lindex("video-queue", i);
+    const job = parseJob(rawJob);
+    if (job && (job.attempts ?? 0) < MAX_ATTEMPTS) {
+      return { job, index: i };
+    }
   }
 
-  return job;
+  return null;
+}
+
+async function removeJob(index: number) {
+  await redis.lrem("video-queue", 1, await redis.lindex("video-queue", index));
 }
 
 async function main() {
-  const job = await claimNextJob();
-  if (!job) {
+  const claimed = await claimNextJob();
+  if (!claimed) {
     return;
   }
 
+  const { job, index } = claimed;
   const { name, ext, attempts = 0 } = job;
 
   try {
@@ -412,6 +422,7 @@ async function main() {
     console.log(`> Processing video: ${name}.${ext}`);
     await reportStatus(name, "processing", 0);
     await processJob({ name, ext, attempts });
+    await removeJob(index);
     console.log("> Job processed", job);
   } catch (error) {
     console.error("> Error processing job:", error);
@@ -423,11 +434,13 @@ async function main() {
         attempts: attempts + 1,
       });
       await redis.rpush("video-queue", nextAttemptJob);
+      await removeJob(index);
       await reportStatus(name, "pending", 0);
       console.log(`> Requeued ${name}.${ext} for retry ${attempts + 1}/${MAX_ATTEMPTS - 1}`);
       return;
     }
 
+    await removeJob(index);
     await reportStatus(name, "failed");
   }
 }

@@ -17,10 +17,9 @@ export default function Page() {
 
           <div className="mt-6 space-y-2">
             <Link
-              href="https://github.com"
+              href="https://github.com/thetanav/vidora/issues/new"
               target="_blank"
-              className="flex items-center justify-center gap-2 rounded-lg border p-3 text-sm hover:bg-accent transition-colors"
-            >
+              className="flex items-center justify-center gap-2 rounded-lg border p-3 text-sm hover:bg-accent transition-colors">
               <GitBranch className="h-4 w-4" />
               Open an issue on GitHub
             </Link>

@@ -29,26 +29,40 @@ export async function POST(req: Request) {
     body = uploadSchema.parse(json);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request", issues: error.issues }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request", issues: error.issues },
+        { status: 400 },
+      );
     }
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const { title, description, id, extension } = body;
 
-  await db.video.create({
-    data: {
-      id,
-      title,
-      description,
-      extension,
-      likes: 0,
-      thumbnail: "https://picsum.photos/720/1280",
-      userId: session.user.id,
-    },
-  });
+  try {
+    await db.video.create({
+      data: {
+        id,
+        title,
+        description,
+        extension,
+        likes: 0,
+        thumbnail: "https://picsum.photos/720/1280",
+        userId: session.user.id,
+      },
+    });
+  } catch (error) {
+    console.error("Database error:", error);
+  }
 
-  await redis.rpush("video-queue", JSON.stringify({ name: id, ext: extension, attempts: 0 }));
+  try {
+    await redis.rpush(
+      "video-queue",
+      JSON.stringify({ name: id, ext: extension, attempts: 0 }),
+    );
+  } catch (error) {
+    console.error("Redis error:", error);
+  }
 
   return new NextResponse("ok");
 }
