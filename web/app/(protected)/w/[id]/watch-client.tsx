@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Share2, ThumbsUp } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/lib/auth-client";
 
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +24,7 @@ export default function WatchClient({
   initialLikes,
 }: WatchClientProps) {
   const likedKey = `vidora:liked:${videoId}`;
+  const { data: session } = useSession();
 
   const [likes, setLikes] = useState(initialLikes);
   const [liked, setLiked] = useState(false);
@@ -46,9 +48,37 @@ export default function WatchClient({
   }, [videoId]);
 
   const handleLike = async () => {
-    if (liked || liking) return;
+    if (!session) {
+      toast.error("Please log in to like videos");
+      return;
+    }
 
-    // Optimistic update
+    // Check if already liked - toggle dislike
+    if (liked) {
+      setLiked(false);
+      setLikes((prev) => prev - 1);
+      setLiking(true);
+
+      try {
+        const res = await fetch(`/api/videos/${videoId}/like`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error("Failed");
+        const data = (await res.json()) as { likes: number };
+        setLikes(data.likes);
+        sessionStorage.removeItem(likedKey);
+      } catch {
+        // Roll back on failure
+        setLiked(true);
+        setLikes((prev) => prev + 1);
+        toast.error("Couldn't remove your like. Try again.");
+      } finally {
+        setLiking(false);
+      }
+      return;
+    }
+
+    // Not liked yet - add like
     setLiked(true);
     setLikes((prev) => prev + 1);
     setLiking(true);
@@ -82,19 +112,10 @@ export default function WatchClient({
         variant="outline"
         size="sm"
         onClick={handleLike}
-        disabled={liked || liking}
-        className={cn(
-          "gap-1.5 rounded-full px-4 transition-colors",
-          liked &&
-            "border-primary/40 bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary",
-        )}
+        // disabled={liked || liking}
+        className={cn("gap-1.5 rounded-full px-4 transition-colors")}
       >
-        <ThumbsUp
-          className={cn(
-            "h-3.5 w-3.5 transition-transform",
-            liked && "fill-primary",
-          )}
-        />
+        <ThumbsUp className="h-3.5 w-3.5 transition-transform" />
         <span>{formatCount(likes)}</span>
       </Button>
 

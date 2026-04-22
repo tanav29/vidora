@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { Play, Activity, MessageSquare, LayoutDashboard, Upload } from "lucide-react";
+import {
+  Play,
+  Activity,
+  MessageSquare,
+  LayoutDashboard,
+  Upload,
+} from "lucide-react";
 import AuthButton from "./signin";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/auth";
@@ -24,7 +30,9 @@ export default async function Sidebar() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:shadow-violet-500/20 transition-shadow">
             <Play className="w-3.5 h-3.5 text-white fill-white" />
           </div>
-          <span className="font-semibold text-foreground text-xl tracking-tight">vidora</span>
+          <span className="font-semibold text-foreground text-xl tracking-tight">
+            vidora
+          </span>
         </Link>
       </div>
 
