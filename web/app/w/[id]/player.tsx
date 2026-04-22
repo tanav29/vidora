@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import "@vidstack/react/player/styles/default/theme.css";
-import "@vidstack/react/player/styles/default/layouts/video.css";
+import "@vidstack/react/player/styles/plyr/theme.css";
 
 import { MediaPlayer, MediaProvider } from "@vidstack/react";
-import { defaultLayoutIcons, DefaultVideoLayout } from "@vidstack/react/player/layouts/default";
+import {
+  PlyrLayout,
+  plyrLayoutIcons,
+} from "@vidstack/react/player/layouts/plyr";
 
 export default function Player({ id }: { id: string }) {
-  const [r2Url, setR2Url] = useState("");
+  const [src, setSrc] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -16,7 +18,7 @@ export default function Player({ id }: { id: string }) {
       try {
         const res = await fetch(`/api/sw/${id}`);
         const data = await res.json();
-        setR2Url(data.url);
+        setSrc(data.url);
       } catch (error) {
         console.error("Failed to fetch video URL:", error);
       } finally {
@@ -26,26 +28,31 @@ export default function Player({ id }: { id: string }) {
     fetchData();
   }, [id]);
 
-  if (r2Url) {
+  if (isLoading) {
     return (
-      <MediaPlayer title="vidora player" src={r2Url} className="w-full h-full">
-        <MediaProvider />
-        <DefaultVideoLayout icons={defaultLayoutIcons} />
-      </MediaPlayer>
+      <div className="grid h-full w-full place-items-center bg-black">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-white/60" />
+          <span className="text-xs text-white/40 tracking-wide">
+            Loading player…
+          </span>
+        </div>
+      </div>
     );
   }
 
-  if (isLoading) {
+  if (!src) {
     return (
-      <div className="grid h-full min-h-[40vh] place-items-center text-sm text-muted-foreground">
-        Loading player...
+      <div className="grid h-full w-full place-items-center bg-black">
+        <p className="text-sm text-white/40">Playback is not available yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="grid h-full min-h-[40vh] place-items-center text-sm text-muted-foreground">
-      Playback is not available yet.
-    </div>
+    <MediaPlayer title="Vidora" src={src} playsInline className="h-full w-full">
+      <MediaProvider />
+      <PlyrLayout icons={plyrLayoutIcons} />
+    </MediaPlayer>
   );
 }
