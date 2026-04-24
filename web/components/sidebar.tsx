@@ -26,7 +26,7 @@ export default async function Sidebar() {
   return (
     <aside className="w-64 flex flex-col border-r border-border/50 bg-card/30">
       <div className="p-5">
-        <Link href="/home" className="flex items-center gap-2.5 group">
+        <Link href="/home" className="flex items-center gap-2.5 group" prefetch>
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:shadow-violet-500/20 transition-shadow">
             <Play className="w-3.5 h-3.5 text-white fill-white" />
           </div>
@@ -44,6 +44,7 @@ export default async function Sidebar() {
             <Link
               key={item.path}
               href={item.path}
+              prefetch
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-500 group ${
                 active
                   ? "bg-foreground/5 text-foreground font-medium"
