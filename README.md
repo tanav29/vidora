@@ -1,5 +1,7 @@
 # Vidora
 
+twt+video: [here](https://x.com/tanavtwt/status/2007356766284329173?s=20)
+
 Vidora is a full-stack video hosting platform that lets authenticated users upload videos, process them asynchronously, and stream them back through adaptive HLS playback.
 
 This project is strong portfolio material because it is not just a CRUD app. It combines a modern web product, a background processing pipeline, object storage, queue-based job orchestration, and public playback links in one system.
