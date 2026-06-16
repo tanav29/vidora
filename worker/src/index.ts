@@ -1,17 +1,15 @@
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
-import { Redis } from "@upstash/redis";
 import dotenv from "dotenv";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import axios from "axios";
 import { S3Client } from "@aws-sdk/client-s3";
 import { pipeline } from "stream/promises";
 import { UTApi } from "uploadthing/server";
+import * as amqp from "amqplib";
 
 dotenv.config();
-
-const redis = Redis.fromEnv();
 
 const utapi = new UTApi();
 
@@ -130,7 +128,7 @@ function createMasterPlaylist(outputDir: string) {
     content += `${res.name}.m3u8\n`;
   });
 
-  fs.writeFileSync(masterPath, content); // write to name/index.m3u8
+  fs.writeFileSync(masterPath, content);
 }
 
 export async function downloadUploadThing(url: string, outPath: string) {
@@ -198,7 +196,6 @@ async function uploadToR2(
           ContentType: contentType,
         })
       );
-      // console.log(`Uploaded ${key}`);
       return;
     } catch (error) {
       console.error(
@@ -234,22 +231,14 @@ function cleanup(paths: string[]) {
 interface Job {
   name: string;
   ext: string;
-  attempts?: number;
 }
 
-const STATUS_TTL_SECONDS = 60 * 60 * 24;
 const MAX_ATTEMPTS = 3;
 
 async function reportStatus(jobId: string, status: JobStatus, progress?: number) {
   const nextProgress = progress ?? (
     status === "done" ? 100 : status === "pending" ? 0 : undefined
   );
-
-  if (nextProgress !== undefined) {
-    await redis.set(`status:${jobId}`, nextProgress, {
-      ex: STATUS_TTL_SECONDS,
-    });
-  }
 
   try {
     const headers = process.env.WORKER_SHARED_SECRET
@@ -273,13 +262,9 @@ async function reportStatus(jobId: string, status: JobStatus, progress?: number)
 
 type JobStatus = "pending" | "processing" | "done" | "failed";
 
-function parseJob(rawJob: unknown): Job | null {
-  if (!rawJob) {
-    return null;
-  }
-
+function parseJob(raw: string): Job | null {
   try {
-    const parsed = typeof rawJob === "string" ? JSON.parse(rawJob) : rawJob;
+    const parsed = JSON.parse(raw);
     if (
       typeof parsed === "object" &&
       parsed !== null &&
@@ -288,17 +273,10 @@ function parseJob(rawJob: unknown): Job | null {
       typeof parsed.name === "string" &&
       typeof parsed.ext === "string"
     ) {
-      return {
-        name: parsed.name,
-        ext: parsed.ext,
-        attempts:
-          "attempts" in parsed && typeof parsed.attempts === "number"
-            ? parsed.attempts
-            : 0,
-      };
+      return { name: parsed.name, ext: parsed.ext };
     }
-  } catch (error) {
-    console.error("> Failed to parse job payload:", error);
+  } catch {
+    return null;
   }
 
   return null;
@@ -355,7 +333,6 @@ async function processJob(job: Job) {
 
     console.log("> Uploading to R2...");
     try {
-      // Upload the :name: folder to R2
       const files = fs.readdirSync(outputDir);
       for (const file of files) {
         const filePath = path.join(outputDir, file);
@@ -365,14 +342,10 @@ async function processJob(job: Job) {
 
         await uploadToR2(filePath, `${name}/${file}`, contentType);
       }
-      // Upload thumbnail
       await uploadToR2(thumbnailPath, `${name}/thumb.jpg`, "image/jpeg");
-      // Delete local thumbnail
       fs.unlinkSync(thumbnailPath);
-      // Delete the output folder
       fs.rmSync(outputDir, { recursive: true });
       await reportStatus(name, "done", 100);
-      // Delete original from uploadthing
       await utapi.deleteFiles(`tmp/${name}.${ext}`);
     } catch (error) {
       console.error(`Error uploading to R2:`, error);
@@ -385,81 +358,89 @@ async function processJob(job: Job) {
   }
 }
 
-async function claimNextJob(): Promise<{ job: Job; index: number } | null> {
-  const queueLen = await redis.llen("video-queue");
-  if (queueLen === 0) return null;
-
-  for (let i = 0; i < queueLen; i++) {
-    const rawJob = await redis.lindex("video-queue", i);
-    const job = parseJob(rawJob);
-    if (job && (job.attempts ?? 0) < MAX_ATTEMPTS) {
-      return { job, index: i };
-    }
+async function start() {
+  const queueUrl = process.env.RABBITMQ_URL;
+  if (!queueUrl) {
+    console.error("RABBITMQ_URL environment variable is required");
+    process.exit(1);
   }
 
-  return null;
+  const QUEUE = "video-queue";
+
+  async function connect(url: string) {
+    const connection = await amqp.connect(url);
+
+    const channel = await connection.createChannel();
+    await channel.assertQueue(QUEUE, { durable: true });
+    await channel.prefetch(1);
+
+    console.log("Worker connected to RabbitMQ, waiting for jobs...");
+
+    await channel.consume(QUEUE, async (msg) => {
+      if (!msg) return;
+
+      const raw = msg.content.toString();
+      const job = parseJob(raw);
+      if (!job) {
+        channel.nack(msg, false, false);
+        return;
+      }
+
+      const retryCount =
+        (msg.properties.headers?.["x-retry-count"] as number | undefined) ?? 0;
+      console.log(
+        `> Processing ${job.name}.${job.ext} (attempt ${retryCount + 1}/${MAX_ATTEMPTS})`
+      );
+      await reportStatus(job.name, "processing", 0);
+
+      try {
+        await processJob(job);
+        channel.ack(msg);
+        console.log(`> Completed ${job.name}.${job.ext}`);
+      } catch (error) {
+        console.error(`> Error processing ${job.name}.${job.ext}:`, error);
+
+        if (retryCount < MAX_ATTEMPTS - 1) {
+          await reportStatus(job.name, "pending", 0);
+          channel.publish("", QUEUE, msg.content, {
+            headers: { "x-retry-count": retryCount + 1 },
+            persistent: true,
+          });
+          channel.ack(msg);
+          console.log(
+            `> Requeued ${job.name}.${job.ext} for retry ${retryCount + 1}/${MAX_ATTEMPTS - 1}`
+          );
+        } else {
+          await reportStatus(job.name, "failed");
+          channel.nack(msg, false, false);
+          console.log(`> Permanently failed ${job.name}.${job.ext}`);
+        }
+      }
+    });
+
+    connection.on("close", () => {
+      console.error("RabbitMQ connection closed, reconnecting in 5 seconds...");
+      channel.close().catch(() => {});
+      setTimeout(() => connect(url), 5000);
+    });
+
+    connection.on("error", (err) => {
+      console.error("RabbitMQ connection error:", err);
+    });
+  }
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+
+  await connect(queueUrl);
 }
 
-async function removeJob(index: number) {
-  await redis.lrem("video-queue", 1, await redis.lindex("video-queue", index));
+async function shutdown() {
+  console.log("Shutting down gracefully...");
+  process.exit(0);
 }
 
-async function main() {
-  const claimed = await claimNextJob();
-  if (!claimed) {
-    return;
-  }
-
-  const { job, index } = claimed;
-  const { name, ext, attempts = 0 } = job;
-
-  try {
-    if (!name || !ext) {
-      return;
-    }
-
-    console.log("> Job found in queue:", job);
-    console.log(`> Processing video: ${name}.${ext}`);
-    await reportStatus(name, "processing", 0);
-    await processJob({ name, ext, attempts });
-    await removeJob(index);
-    console.log("> Job processed", job);
-  } catch (error) {
-    console.error("> Error processing job:", error);
-
-    if (attempts + 1 < MAX_ATTEMPTS) {
-      const nextAttemptJob = JSON.stringify({
-        name,
-        ext,
-        attempts: attempts + 1,
-      });
-      await redis.rpush("video-queue", nextAttemptJob);
-      await removeJob(index);
-      await reportStatus(name, "pending", 0);
-      console.log(`> Requeued ${name}.${ext} for retry ${attempts + 1}/${MAX_ATTEMPTS - 1}`);
-      return;
-    }
-
-    await removeJob(index);
-    await reportStatus(name, "failed");
-  }
-}
-
-let running = false;
-
-setInterval(async () => {
-  if (running) {
-    return;
-  }
-  const hasJobs = await redis.exists("video-queue");
-  if (!hasJobs) return;
-
-  running = true;
-  try {
-    await main();
-  } catch (e) {
-    console.error(e);
-  } finally {
-    running = false;
-  }
-}, 5_000);
+start().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});
