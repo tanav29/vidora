@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import db from "@/lib/db";
-import { getChannel, QUEUE } from "@/lib/rabbitmq";
+import { getChannel, QUEUE, setupQueues } from "@/lib/rabbitmq";
 import { redis } from "@/lib/redis";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
@@ -8,11 +8,11 @@ import { z } from "zod";
 
 export async function publishJob(job: any) {
   const ch = await getChannel();
-  await ch.assertQueue(QUEUE, { durable: true });
+  await setupQueues();
   ch.sendToQueue(
     QUEUE,
     Buffer.from(JSON.stringify(job)),
-    { persistent: true }, // survives broker restart
+    { persistent: true },
   );
   console.log("Job queued:", job.name);
 }

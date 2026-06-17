@@ -7,7 +7,14 @@ import axios from "axios";
 import { S3Client } from "@aws-sdk/client-s3";
 import { pipeline } from "stream/promises";
 import { UTApi } from "uploadthing/server";
-import { getChannel, QUEUE, close } from "./rabbitmq.js";
+import {
+  getChannel,
+  QUEUE,
+  close,
+  setupQueues,
+  getRetryCount,
+  MAX_RETRIES,
+} from "./rabbitmq.js";
 
 dotenv.config();
 
@@ -364,16 +371,15 @@ async function processJob(job: Job) {
 
 async function startWorker() {
   const ch = await getChannel();
-  await ch.assertQueue(QUEUE, { durable: true });
+  await setupQueues();
 
-  // only 1 message at a time on this worker
   await ch.prefetch(1);
 
   console.log("Worker waiting for jobs…");
   ch.consume(
     QUEUE,
     async (msg: any) => {
-      if (!msg) return; // consumer cancelled
+      if (!msg) return;
 
       const job = parseJob(msg.content.toString());
       if (!job) {
@@ -384,10 +390,15 @@ async function startWorker() {
 
       try {
         await processJob(job);
-        ch.ack(msg); // done — remove from queue
+        ch.ack(msg);
       } catch (err) {
-        console.error(err);
-        ch.reject(msg, false); // drop to DLQ if configured
+        const retryCount = getRetryCount(msg);
+        console.error(`Job ${job.name} failed (attempt ${retryCount + 1}/${MAX_RETRIES}):`, err);
+        if (retryCount < MAX_RETRIES) {
+          ch.reject(msg, false);
+        } else {
+          ch.ack(msg);
+        }
       }
     },
     { noAck: false },
