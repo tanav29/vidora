@@ -2,6 +2,9 @@ import amqp from "amqplib";
 
 const RABBIT_URL = process.env.RABBIT_URL || "amqp://localhost";
 let conn: any, channel: any;
+let reconnecting = false;
+type ReconnectHandler = (ch: any) => Promise<void>;
+let reconnectHandler: ReconnectHandler | null = null;
 
 export const QUEUE = "video-queue";
 export const RETRY_QUEUE = "video-queue-retry";
@@ -9,17 +12,50 @@ export const DLX = "dlx";
 export const MAX_RETRIES = 3;
 export const RETRY_DELAY_MS = 30_000;
 
-export async function getChannel() {
-  if (channel) return channel;
+export function onReconnect(cb: ReconnectHandler) {
+  reconnectHandler = cb;
+}
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function connect() {
   conn = await amqp.connect(RABBIT_URL);
   channel = await conn.createChannel();
 
   conn.on("close", () => {
-    conn = channel = null;
+    conn = null;
+    channel = null;
+    if (!reconnecting) {
+      reconnecting = true;
+      reconnect();
+    }
   });
   conn.on("error", console.error);
+}
 
+async function reconnect() {
+  for (let i = 0; i < 10; i++) {
+    try {
+      await sleep(Math.min(1000 * 2 ** i, 30000));
+      await connect();
+      await setupQueues();
+      if (reconnectHandler) {
+        await reconnectHandler(channel);
+      }
+      reconnecting = false;
+      return;
+    } catch (err) {
+      console.error(`Reconnect attempt ${i + 1} failed:`, err);
+    }
+  }
+  console.error("All reconnection attempts exhausted.");
+}
+
+export async function getChannel() {
+  if (channel) return channel;
+  if (!conn) {
+    await connect();
+  }
   return channel;
 }
 
@@ -54,6 +90,9 @@ export function getRetryCount(msg: any): number {
 }
 
 export async function close() {
-  await channel?.close();
-  await conn?.close();
+  try {
+    await channel?.close();
+  } finally {
+    await conn?.close();
+  }
 }

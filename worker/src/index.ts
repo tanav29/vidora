@@ -14,6 +14,7 @@ import {
   setupQueues,
   getRetryCount,
   MAX_RETRIES,
+  onReconnect,
 } from "./rabbitmq.js";
 
 dotenv.config();
@@ -369,44 +370,50 @@ async function processJob(job: Job) {
   }
 }
 
+function createConsumer(ch: any) {
+  return async (msg: any) => {
+    if (!msg) return;
+
+    const job = parseJob(msg.content.toString());
+    if (!job) {
+      ch.nack(msg, false, false);
+      return;
+    }
+    console.log("Received:", job.name);
+
+    try {
+      await processJob(job);
+      ch.ack(msg);
+    } catch (err) {
+      const retryCount = getRetryCount(msg);
+      console.error(`Job ${job.name} failed (attempt ${retryCount + 1}/${MAX_RETRIES}):`, err);
+      if (retryCount < MAX_RETRIES) {
+        ch.reject(msg, false);
+      } else {
+        ch.ack(msg);
+      }
+    }
+  };
+}
+
 async function startWorker() {
   const ch = await getChannel();
   await setupQueues();
 
+  onReconnect(async (ch) => {
+    await setupQueues();
+    await ch.prefetch(1);
+    ch.consume(QUEUE, createConsumer(ch), { noAck: false });
+  });
+
   await ch.prefetch(1);
 
   console.log("Worker waiting for jobs…");
-  ch.consume(
-    QUEUE,
-    async (msg: any) => {
-      if (!msg) return;
-
-      const job = parseJob(msg.content.toString());
-      if (!job) {
-        ch.nack(msg, false, false);
-        return;
-      }
-      console.log("Received:", job.name);
-
-      try {
-        await processJob(job);
-        ch.ack(msg);
-      } catch (err) {
-        const retryCount = getRetryCount(msg);
-        console.error(`Job ${job.name} failed (attempt ${retryCount + 1}/${MAX_RETRIES}):`, err);
-        if (retryCount < MAX_RETRIES) {
-          ch.reject(msg, false);
-        } else {
-          ch.ack(msg);
-        }
-      }
-    },
-    { noAck: false },
-  );
+  ch.consume(QUEUE, createConsumer(ch), { noAck: false });
 }
 
 // graceful shutdown
-process.on("SIGINT", close);
-process.on("SIGTERM", close);
+process.on("SIGINT", () => close().catch(() => process.exit(1)));
+process.on("SIGTERM", () => close().catch(() => process.exit(1)));
 
 startWorker();

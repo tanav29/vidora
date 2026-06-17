@@ -22,6 +22,8 @@ export async function getChannel() {
 export async function setupQueues() {
   const ch = await getChannel();
 
+  await ch.assertExchange("dlx", "direct", { durable: true });
+
   await ch.assertQueue(QUEUE, {
     durable: true,
     deadLetterExchange: "dlx",
