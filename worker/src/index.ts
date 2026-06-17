@@ -7,7 +7,7 @@ import axios from "axios";
 import { S3Client } from "@aws-sdk/client-s3";
 import { pipeline } from "stream/promises";
 import { UTApi } from "uploadthing/server";
-import * as amqp from "amqplib";
+import { getChannel, QUEUE, close } from "./rabbitmq.js";
 
 dotenv.config();
 
@@ -40,7 +40,7 @@ const resolutions: Resolution[] = [
 async function encodeResolution(
   inputPath: string,
   outputDir: string,
-  resolution: Resolution
+  resolution: Resolution,
 ) {
   return new Promise<void>((resolve, reject) => {
     const playlistPath = path.join(outputDir, `${resolution.name}.m3u8`);
@@ -101,7 +101,7 @@ async function generateThumbnail(inputPath: string, outputPath: string) {
       "3",
       "-frames:v",
       "1",
-      outputPath
+      outputPath,
     ]);
 
     ffmpeg.on("error", (err) => {
@@ -183,7 +183,7 @@ async function uploadToR2(
   filePath: string,
   key: string,
   contentType: string,
-  retries = 3
+  retries = 3,
 ) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -194,13 +194,13 @@ async function uploadToR2(
           Key: key,
           Body: fileStream,
           ContentType: contentType,
-        })
+        }),
       );
       return;
     } catch (error) {
       console.error(
         `Upload attempt ${attempt}/${retries} failed for ${key}:`,
-        error
+        error,
       );
       if (attempt === retries) {
         throw new Error(`Failed to upload ${key} after ${retries} attempts`);
@@ -233,12 +233,14 @@ interface Job {
   ext: string;
 }
 
-const MAX_ATTEMPTS = 3;
-
-async function reportStatus(jobId: string, status: JobStatus, progress?: number) {
-  const nextProgress = progress ?? (
-    status === "done" ? 100 : status === "pending" ? 0 : undefined
-  );
+async function reportStatus(
+  jobId: string,
+  status: JobStatus,
+  progress?: number,
+) {
+  const nextProgress =
+    progress ??
+    (status === "done" ? 100 : status === "pending" ? 0 : undefined);
 
   try {
     const headers = process.env.WORKER_SHARED_SECRET
@@ -253,7 +255,7 @@ async function reportStatus(jobId: string, status: JobStatus, progress?: number)
         status,
         progress: nextProgress,
       },
-      headers ? { headers } : undefined
+      headers ? { headers } : undefined,
     );
   } catch (error) {
     console.error("> Error posting status:", error);
@@ -319,7 +321,9 @@ async function processJob(job: Job) {
       await encodeResolution(inputPath, outputDir, resolution);
       const nextProgress = Math.min(
         75,
-        15 + resolutions.findIndex((item) => item.name === resolution.name) * 15 + 15
+        15 +
+          resolutions.findIndex((item) => item.name === resolution.name) * 15 +
+          15,
       );
       await reportStatus(name, "processing", nextProgress);
     }
@@ -358,89 +362,40 @@ async function processJob(job: Job) {
   }
 }
 
-async function start() {
-  const queueUrl = process.env.RABBITMQ_URL;
-  if (!queueUrl) {
-    console.error("RABBITMQ_URL environment variable is required");
-    process.exit(1);
-  }
+async function startWorker() {
+  const ch = await getChannel();
+  await ch.assertQueue(QUEUE, { durable: true });
 
-  const QUEUE = "video-queue";
+  // only 1 message at a time on this worker
+  await ch.prefetch(1);
 
-  async function connect(url: string) {
-    const connection = await amqp.connect(url);
+  console.log("Worker waiting for jobs…");
+  ch.consume(
+    QUEUE,
+    async (msg: any) => {
+      if (!msg) return; // consumer cancelled
 
-    const channel = await connection.createChannel();
-    await channel.assertQueue(QUEUE, { durable: true });
-    await channel.prefetch(1);
-
-    console.log("Worker connected to RabbitMQ, waiting for jobs...");
-
-    await channel.consume(QUEUE, async (msg) => {
-      if (!msg) return;
-
-      const raw = msg.content.toString();
-      const job = parseJob(raw);
+      const job = parseJob(msg.content.toString());
       if (!job) {
-        channel.nack(msg, false, false);
+        ch.nack(msg, false, false);
         return;
       }
-
-      const retryCount =
-        (msg.properties.headers?.["x-retry-count"] as number | undefined) ?? 0;
-      console.log(
-        `> Processing ${job.name}.${job.ext} (attempt ${retryCount + 1}/${MAX_ATTEMPTS})`
-      );
-      await reportStatus(job.name, "processing", 0);
+      console.log("Received:", job.name);
 
       try {
         await processJob(job);
-        channel.ack(msg);
-        console.log(`> Completed ${job.name}.${job.ext}`);
-      } catch (error) {
-        console.error(`> Error processing ${job.name}.${job.ext}:`, error);
-
-        if (retryCount < MAX_ATTEMPTS - 1) {
-          await reportStatus(job.name, "pending", 0);
-          channel.publish("", QUEUE, msg.content, {
-            headers: { "x-retry-count": retryCount + 1 },
-            persistent: true,
-          });
-          channel.ack(msg);
-          console.log(
-            `> Requeued ${job.name}.${job.ext} for retry ${retryCount + 1}/${MAX_ATTEMPTS - 1}`
-          );
-        } else {
-          await reportStatus(job.name, "failed");
-          channel.nack(msg, false, false);
-          console.log(`> Permanently failed ${job.name}.${job.ext}`);
-        }
+        ch.ack(msg); // done — remove from queue
+      } catch (err) {
+        console.error(err);
+        ch.reject(msg, false); // drop to DLQ if configured
       }
-    });
-
-    connection.on("close", () => {
-      console.error("RabbitMQ connection closed, reconnecting in 5 seconds...");
-      channel.close().catch(() => {});
-      setTimeout(() => connect(url), 5000);
-    });
-
-    connection.on("error", (err) => {
-      console.error("RabbitMQ connection error:", err);
-    });
-  }
-
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-
-  await connect(queueUrl);
+    },
+    { noAck: false },
+  );
 }
 
-async function shutdown() {
-  console.log("Shutting down gracefully...");
-  process.exit(0);
-}
+// graceful shutdown
+process.on("SIGINT", close);
+process.on("SIGTERM", close);
 
-start().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+startWorker();

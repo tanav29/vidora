@@ -1,9 +1,21 @@
 import { auth } from "@/lib/auth";
 import db from "@/lib/db";
+import { getChannel, QUEUE } from "@/lib/rabbitmq";
 import { redis } from "@/lib/redis";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+
+export async function publishJob(job: any) {
+  const ch = await getChannel();
+  await ch.assertQueue(QUEUE, { durable: true });
+  ch.sendToQueue(
+    QUEUE,
+    Buffer.from(JSON.stringify(job)),
+    { persistent: true }, // survives broker restart
+  );
+  console.log("Job queued:", job.name);
+}
 
 const uploadSchema = z.object({
   title: z.string().trim().min(1).max(120),
@@ -55,14 +67,8 @@ export async function POST(req: Request) {
     console.error("Database error:", error);
   }
 
-  try {
-    await redis.rpush(
-      "video-queue",
-      JSON.stringify({ name: id, ext: extension, attempts: 0 }),
-    );
-  } catch (error) {
-    console.error("Redis error:", error);
-  }
+  // rabbitmq here
+  await publishJob({ name: id, ext: extension });
 
   return new NextResponse("ok");
 }

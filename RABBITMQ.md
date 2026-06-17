@@ -1,4 +1,6 @@
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management
+docker run -p 5672:5672 -p 15672:15672 rabbitmq:4-management
+
+
 - 5672 — AMQP (worker connection)
 - 15672 — Management UI (http://localhost:15672, guest/guest)
 - Connection URL: amqp://guest:guest@localhost:5672/
