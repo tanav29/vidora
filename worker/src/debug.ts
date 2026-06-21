@@ -2,6 +2,7 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import axios from "axios";
+import { execSync } from "child_process";
 import { pipeline } from "stream/promises";
 
 const tmpDir = "tmp";
@@ -104,6 +105,105 @@ async function generateThumbnail(inputPath: string, thumbPath: string) {
   });
 }
 
+const SPRITE_THUMB_WIDTH = 160;
+const SPRITE_THUMB_INTERVAL = 5;
+const SPRITE_COLUMNS = 10;
+
+function getVideoDuration(inputPath: string): number {
+  const result = execSync(
+    `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputPath}"`,
+    { encoding: "utf-8" },
+  ).trim();
+  return parseFloat(result);
+}
+
+async function generateThumbnailSprites(
+  inputPath: string,
+  outputDir: string,
+): Promise<{ vttPath: string; spritePaths: string[] }> {
+  const duration = getVideoDuration(inputPath);
+  const totalFrames = Math.ceil(duration / SPRITE_THUMB_INTERVAL);
+  const rows = Math.ceil(totalFrames / SPRITE_COLUMNS);
+  const thumbHeight = Math.round(SPRITE_THUMB_WIDTH * (9 / 16));
+
+  console.log(
+    `> Generating ${totalFrames} thumbnails (${SPRITE_COLUMNS}x${rows} grid, ${SPRITE_THUMB_WIDTH}x${thumbHeight}px each)...`,
+  );
+
+  const spriteDir = path.join(outputDir, "sprites");
+  fs.mkdirSync(spriteDir, { recursive: true });
+
+  const spritePaths: string[] = [];
+
+  for (let sheetIndex = 0; sheetIndex < rows; sheetIndex++) {
+    const spriteFile = `sprite_${String(sheetIndex).padStart(3, "0")}.jpg`;
+    const spritePath = path.join(spriteDir, spriteFile);
+
+    await new Promise<void>((resolve, reject) => {
+      const ffmpeg = spawn("ffmpeg", [
+        "-y",
+        "-i",
+        inputPath,
+        "-vf",
+        `fps=1/${SPRITE_THUMB_INTERVAL},scale=${SPRITE_THUMB_WIDTH}:${thumbHeight}:force_original_aspect_ratio=decrease,pad=${SPRITE_THUMB_WIDTH}:${thumbHeight}:(ow-iw)/2:(oh-ih)/2,tile=${SPRITE_COLUMNS}x1`,
+        "-q:v",
+        "5",
+        "-frames:v",
+        "1",
+        spritePath,
+      ]);
+
+      ffmpeg.on("error", (err) =>
+        reject(new Error(`ffmpeg sprite error: ${err}`)),
+      );
+      ffmpeg.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`ffmpeg sprite exited with code ${code}`));
+      });
+    });
+
+    spritePaths.push(spritePath);
+  }
+
+  const vttLines = ["WEBVTT", ""];
+  for (let i = 0; i < totalFrames; i++) {
+    const sheetIndex = Math.floor(i / SPRITE_COLUMNS);
+    const col = i % SPRITE_COLUMNS;
+    const startTime = i * SPRITE_THUMB_INTERVAL;
+    const endTime = Math.min(startTime + SPRITE_THUMB_INTERVAL, duration);
+
+    const startStr = formatVttTime(startTime);
+    const endStr = formatVttTime(endTime);
+    const x = col * SPRITE_THUMB_WIDTH;
+    const spriteFile = `sprite_${String(sheetIndex).padStart(3, "0")}.jpg`;
+
+    vttLines.push(`${startStr} --> ${endStr}`);
+    vttLines.push(`${spriteFile}#xywh=${x},0,${SPRITE_THUMB_WIDTH},${thumbHeight}`);
+    vttLines.push("");
+  }
+
+  const vttPath = path.join(outputDir, "thumbnails.vtt");
+  fs.writeFileSync(vttPath, vttLines.join("\n"));
+
+  return { vttPath, spritePaths };
+}
+
+function formatVttTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return (
+    String(h).padStart(2, "0") +
+    ":" +
+    String(m).padStart(2, "0") +
+    ":" +
+    String(s).padStart(2, "0") +
+    "." +
+    String(ms).padStart(3, "0")
+  );
+}
+
 function createMasterPlaylist(dir: string) {
   const masterPath = path.join(dir, "index.m3u8");
   let content = "#EXTM3U\n#EXT-X-VERSION:3\n";
@@ -165,16 +265,32 @@ export async function downloadUploadThing(url: string, outPath: string) {
   console.log(`> Downloaded video ${stats.size} bytes to ${outPath}`);
 }
 
-function saveToOutput(name: string, encodeDir: string, thumbnailPath: string) {
+function saveToOutput(
+  name: string,
+  encodeDir: string,
+  thumbnailPath: string,
+  spritePaths: string[],
+) {
   const dest = path.join(outputDir, name);
   fs.mkdirSync(dest, { recursive: true });
 
   // Copy all HLS files
-  const files = fs.readdirSync(encodeDir);
+  const files = fs.readdirSync(encodeDir).filter((f) => !f.startsWith("sprites"));
   for (const file of files) {
     const src = path.join(encodeDir, file);
     fs.copyFileSync(src, path.join(dest, file));
     console.log(`> Saved ${file} -> ${path.join(dest, file)}`);
+  }
+
+  // Copy thumbnail sprites
+  if (spritePaths.length > 0) {
+    const spriteDest = path.join(dest, "sprites");
+    fs.mkdirSync(spriteDest, { recursive: true });
+    for (const spritePath of spritePaths) {
+      const spriteFile = path.basename(spritePath);
+      fs.copyFileSync(spritePath, path.join(spriteDest, spriteFile));
+      console.log(`> Saved ${spriteFile} -> ${path.join(spriteDest, spriteFile)}`);
+    }
   }
 
   // Copy thumbnail
@@ -284,23 +400,33 @@ async function processJob(job: Job) {
 
     // Create master playlist
     createMasterPlaylist(encodeDir);
-    await reportStatus(name, "processing", 80);
+    await reportStatus(name, "processing", 78);
+
+    // Generate thumbnail sprites for timeline preview
+    console.log("> Generating thumbnail sprites...");
+    const { vttPath, spritePaths } = await generateThumbnailSprites(
+      inputPath,
+      encodeDir,
+    );
+    await reportStatus(name, "processing", 85);
 
     // Delete input file after encoding
     fs.unlinkSync(inputPath);
 
     // Save all output files to the output folder
     console.log("> Saving files to output folder...");
-    saveToOutput(name, encodeDir, thumbnailPath);
+    saveToOutput(name, encodeDir, thumbnailPath, spritePaths);
 
     // Clean up tmp encode dir and thumbnail
-    cleanup([encodeDir, thumbnailPath]);
+    const spriteDir = path.join(encodeDir, "sprites");
+    cleanup([encodeDir, thumbnailPath, spriteDir]);
 
     await reportStatus(name, "done", 100);
     console.log(`> Done! Files available at ${path.join(outputDir, name)}`);
   } catch (error) {
     console.error(`Error processing ${name}:`, error);
-    cleanup([inputPath, encodeDir, thumbnailPath]);
+    const spriteDir = path.join(encodeDir, "sprites");
+    cleanup([inputPath, encodeDir, thumbnailPath, spriteDir]);
     throw error;
   }
 }

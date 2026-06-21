@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { getThumbnailUrl } from "@/lib/video-urls";
+import { getThumbnailUrl, getThumbnailVttUrl } from "@/lib/video-urls";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createPlayer } from "@videojs/react";
+import { createPlayer, Thumbnail } from "@videojs/react";
 import { MinimalVideoSkin, Video, videoFeatures } from "@videojs/react/video";
 import "@videojs/react/video/minimal-skin.css";
 
@@ -44,11 +44,14 @@ export const VideoJsPlayer = ({ id }: { id: string }) => {
   const [src, setSrc] = useState("");
   const [selectedQuality, setSelectedQuality] = useState<Quality>("auto");
   const [isLoading, setIsLoading] = useState(true);
+  const [previewTime, setPreviewTime] = useState(0);
 
   const playbackSrc = useMemo(
     () => (src ? getQualityUrl(src, selectedQuality) : ""),
     [selectedQuality, src],
   );
+
+  const vttUrl = useMemo(() => getThumbnailVttUrl(id), [id]);
 
   const selectedQualityLabel =
     qualityOptions.find((item) => item.value === selectedQuality)?.label ??
@@ -94,6 +97,18 @@ export const VideoJsPlayer = ({ id }: { id: string }) => {
     };
   }, [playbackSrc]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTimeUpdate = () => setPreviewTime(video.currentTime);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+
+    return () => {
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, [playbackSrc]);
+
   const handleQualityChange = (quality: string) => {
     if (quality === selectedQuality) return;
 
@@ -122,6 +137,17 @@ export const VideoJsPlayer = ({ id }: { id: string }) => {
               className="h-full w-full"
               src={playbackSrc}
               playsInline
+            >
+              <track
+                kind="metadata"
+                label="thumbnails"
+                src={vttUrl}
+                default
+              />
+            </Video>
+            <Thumbnail
+              className="pointer-events-none absolute bottom-12 left-3 z-30 max-w-[180px] rounded-md border border-white/20 shadow-lg"
+              time={previewTime}
             />
           </MinimalVideoSkin>
         </Player.Provider>

@@ -1,4 +1,3 @@
-import Player from "./player_old";
 import WatchClient from "./watch-client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
