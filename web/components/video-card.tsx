@@ -86,7 +86,9 @@ export default function VideoCard({ video }: VideoCardProps) {
 
   const handleCopyStreamUrl = async (event: SyntheticEvent) => {
     stopEvent(event);
-    const res = await fetch(`/api/videos/${video.id}/share`, { cache: "no-store" });
+    const res = await fetch(`/api/videos/${video.id}/share`, {
+      cache: "no-store",
+    });
 
     if (!res.ok) {
       toast.error("Failed to load video links");
@@ -112,12 +114,19 @@ export default function VideoCard({ video }: VideoCardProps) {
 
   const statusConfig = {
     failed: { label: "Failed", class: "bg-destructive/10 text-destructive" },
-    processing: { label: "Processing", class: "bg-amber-500/10 text-amber-600" },
+    processing: {
+      label: "Processing",
+      class: "bg-amber-500/10 text-amber-600",
+    },
     done: { label: null, class: "" },
   };
 
   const status =
-    video.status === "failed" ? "failed" : video.status !== "done" ? "processing" : "done";
+    video.status === "failed"
+      ? "failed"
+      : video.status !== "done"
+        ? "processing"
+        : "done";
 
   return (
     <Link href={`/w/${video.id}`} className="group block">
@@ -139,12 +148,12 @@ export default function VideoCard({ video }: VideoCardProps) {
       </div>
 
       <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pl-2">
           <h3 className="font-medium text-foreground text-sm leading-tight line-clamp-2 group-hover:text-foreground/80 transition-colors">
             {video.title}
           </h3>
 
-          <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
             <span>{formatDate(video.createdAt)}</span>
             {status === "done" && (
               <>
@@ -162,21 +171,30 @@ export default function VideoCard({ video }: VideoCardProps) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 -mr-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              size="icon-sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={stopEvent}
             >
               <MoreVertical className="w-4 h-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={handleRename} className="cursor-pointer text-xs">
+            <DropdownMenuItem
+              onClick={handleRename}
+              className="cursor-pointer text-xs"
+            >
               Rename
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleCopyStreamUrl} className="cursor-pointer text-xs">
+            <DropdownMenuItem
+              onClick={handleCopyStreamUrl}
+              className="cursor-pointer text-xs"
+            >
               Copy stream URL
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleShare} className="cursor-pointer text-xs">
+            <DropdownMenuItem
+              onClick={handleShare}
+              className="cursor-pointer text-xs"
+            >
               Copy watch link
             </DropdownMenuItem>
             <DropdownMenuSeparator />

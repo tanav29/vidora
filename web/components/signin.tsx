@@ -11,23 +11,39 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
-export default function AuthButton({ session }: { session: any }) {
+export default function AuthButton({
+  session,
+  collapsed = false,
+}: {
+  session: any;
+  collapsed?: boolean;
+}) {
   if (session) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="w-full cursor-pointer flex items-center justify-between overflow-clip hover:bg-accent rounded-md outline-none select-none">
-            <div className="flex flex-col items-start">
-              <h2>{session.user?.name!}</h2>
-              <h2 className="text-muted-foreground text-xs text-ellipsis">
-                {session.user?.email!}
-              </h2>
-            </div>
-            <img
-              src={session.user?.image ?? ""}
-              className="w-7 h-7 rounded-full"
-              alt="User avatar"
-            />
+            {collapsed ? (
+              <img
+                src={session.user?.image ?? ""}
+                className="w-7 h-7 rounded-full mx-auto"
+                alt="User avatar"
+              />
+            ) : (
+              <>
+                <div className="flex flex-col items-start">
+                  <h2>{session.user?.name!}</h2>
+                  <h2 className="text-muted-foreground text-xs text-ellipsis">
+                    {session.user?.email!}
+                  </h2>
+                </div>
+                <img
+                  src={session.user?.image ?? ""}
+                  className="w-7 h-7 rounded-full"
+                  alt="User avatar"
+                />
+              </>
+            )}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end">

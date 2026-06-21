@@ -1,17 +1,58 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import "@vidstack/react/player/styles/plyr/theme.css";
-
-import { MediaPlayer, MediaProvider } from "@vidstack/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { getThumbnailUrl } from "@/lib/video-urls";
 import {
-  PlyrLayout,
-  plyrLayoutIcons,
-} from "@vidstack/react/player/layouts/plyr";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { createPlayer } from "@videojs/react";
+import { MinimalVideoSkin, Video, videoFeatures } from "@videojs/react/video";
+import "@videojs/react/video/minimal-skin.css";
 
-export default function Player({ id }: { id: string }) {
+const Player = createPlayer({ features: videoFeatures });
+
+const qualityOptions = [
+  { label: "Auto", value: "auto", fileName: "index.m3u8" },
+  { label: "1080p", value: "1080p", fileName: "1080p.m3u8" },
+  { label: "720p", value: "720p", fileName: "720p.m3u8" },
+  { label: "480p", value: "480p", fileName: "480p.m3u8" },
+  { label: "240p", value: "240p", fileName: "240p.m3u8" },
+] as const;
+
+type Quality = (typeof qualityOptions)[number]["value"];
+
+type PlaybackState = {
+  time: number;
+  paused: boolean;
+};
+
+function getQualityUrl(src: string, quality: Quality) {
+  const option = qualityOptions.find((item) => item.value === quality);
+  if (!option) return src;
+
+  return src.replace(/[^/]+$/, option.fileName);
+}
+
+export const VideoJsPlayer = ({ id }: { id: string }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const pendingPlaybackState = useRef<PlaybackState | null>(null);
   const [src, setSrc] = useState("");
+  const [selectedQuality, setSelectedQuality] = useState<Quality>("auto");
   const [isLoading, setIsLoading] = useState(true);
+
+  const playbackSrc = useMemo(
+    () => (src ? getQualityUrl(src, selectedQuality) : ""),
+    [selectedQuality, src],
+  );
+
+  const selectedQualityLabel =
+    qualityOptions.find((item) => item.value === selectedQuality)?.label ??
+    "Auto";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,31 +69,99 @@ export default function Player({ id }: { id: string }) {
     fetchData();
   }, [id]);
 
-  if (isLoading) {
+  useEffect(() => {
+    const video = videoRef.current;
+    const playbackState = pendingPlaybackState.current;
+
+    if (!video || !playbackState) return;
+
+    const restorePlaybackState = () => {
+      video.currentTime = playbackState.time;
+
+      if (!playbackState.paused) {
+        void video.play().catch(() => undefined);
+      }
+
+      pendingPlaybackState.current = null;
+    };
+
+    video.addEventListener("loadedmetadata", restorePlaybackState, {
+      once: true,
+    });
+
+    return () => {
+      video.removeEventListener("loadedmetadata", restorePlaybackState);
+    };
+  }, [playbackSrc]);
+
+  const handleQualityChange = (quality: string) => {
+    if (quality === selectedQuality) return;
+
+    const video = videoRef.current;
+    if (video) {
+      pendingPlaybackState.current = {
+        time: video.currentTime,
+        paused: video.paused,
+      };
+    }
+
+    setSelectedQuality(quality as Quality);
+  };
+
+  if (!isLoading) {
     return (
-      <div className="grid h-full w-full place-items-center bg-black">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-white/60" />
-          <span className="text-xs text-white/40 tracking-wide">
-            Loading player…
-          </span>
-        </div>
+      <div className="relative h-full w-full overflow-hidden rounded-xl bg-black">
+        <Player.Provider>
+          <MinimalVideoSkin
+            className="h-full w-full"
+            poster={getThumbnailUrl(id)}
+          >
+            <Video
+              ref={videoRef}
+              autoPlay={true}
+              className="h-full w-full"
+              src={playbackSrc}
+              playsInline
+            />
+          </MinimalVideoSkin>
+        </Player.Provider>
+
+        {src && (
+          <div
+            className="absolute right-3 top-3 z-20"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/65 px-3 text-xs font-medium text-white shadow-lg ring-1 ring-white/15 backdrop-blur transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  aria-label="Select video quality"
+                >
+                  <span>{selectedQualityLabel}</span>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-28">
+                <DropdownMenuRadioGroup
+                  value={selectedQuality}
+                  onValueChange={handleQualityChange}
+                >
+                  {qualityOptions.map((option) => (
+                    <DropdownMenuRadioItem
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
     );
   }
-
-  if (!src) {
-    return (
-      <div className="grid h-full w-full place-items-center bg-black">
-        <p className="text-sm text-white/40">Playback is not available yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <MediaPlayer title="Vidora" src={src} playsInline className="h-full w-full">
-      <MediaProvider />
-      <PlyrLayout icons={plyrLayoutIcons} />
-    </MediaPlayer>
-  );
-}
+  return null;
+};

@@ -1,4 +1,4 @@
-import Player from "./player";
+import Player from "./player_old";
 import WatchClient from "./watch-client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import db from "@/lib/db";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Activity } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { VideoJsPlayer } from "./player";
 
 export default async function Page({
   params,
@@ -57,12 +58,9 @@ export default async function Page({
 
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Player */}
-        <div
-          className="relative w-full overflow-hidden rounded-2xl bg-black border shadow-2xl"
-          style={{ aspectRatio: "16/9" }}
-        >
+        <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
           {video.status === "done" ? (
-            <Player id={id} />
+            <VideoJsPlayer id={id} />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">

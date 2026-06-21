@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "localhost" },
     ],
   },
+  devIndicators: false,
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ["lucide-react"],
