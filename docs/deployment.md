@@ -5,8 +5,7 @@ This document describes a practical production deployment for Vidora using:
 - Vercel for the `web/` app
 - Railway or any Docker host for the `worker/` service
 - Postgres for the database
-- RabbitMQ for job queueing
-- Upstash Redis for transient job status
+- Upstash Redis for job queueing and transient job status
 - Cloudflare R2 for processed HLS assets
 - UploadThing for upload intake
 
@@ -17,7 +16,6 @@ flowchart LR
     U[User Browser]
     W[Next.js Web App]
     DB[(Postgres)]
-    MQ[RabbitMQ]
     RS[(Upstash Redis)]
     UT[UploadThing]
     WK[Transcoding Worker]
@@ -25,11 +23,10 @@ flowchart LR
 
     U --> W
     W --> DB
-    W --> MQ
     U --> UT
     W --> UT
     W --> RS
-    MQ --> WK
+    RS --> WK
     WK --> UT
     WK --> R2
     WK --> W
@@ -66,7 +63,7 @@ Recommended host: Railway
 Why this fits:
 
 - the worker needs FFmpeg installed
-- it runs continuously and consumes jobs from RabbitMQ
+- it runs continuously and consumes jobs from Redis
 - a Docker-based host is the simplest production shape
 
 The repository already includes [`worker/Dockerfile`](/home/thetanav/c/p/vidora/worker/Dockerfile), which installs FFmpeg and runs the compiled worker.
@@ -83,8 +80,7 @@ Suggested Railway settings:
 Use managed services for:
 
 - Postgres
-- RabbitMQ (e.g. CloudAMQP, RabbitMQ Cloud, or self-hosted)
-- Upstash Redis (for job status, not queueing)
+- Upstash Redis (for job queueing and job status)
 - Cloudflare R2
 - UploadThing
 
@@ -100,7 +96,6 @@ Set these for the `web` deployment:
 DATABASE_URL="postgresql://..."
 UPSTASH_REDIS_REST_URL="..."
 UPSTASH_REDIS_REST_TOKEN="..."
-RABBIT_URL="amqps://user:pass@..."
 R2_PUBLIC_URL="https://<public-r2-domain>"
 NEXT_PUBLIC_R2_PUBLIC_URL="https://<public-r2-domain>"
 UPLOADTHING_TOKEN="..."
@@ -112,7 +107,6 @@ WORKER_SHARED_SECRET="..."
 
 Notes:
 
-- `RABBIT_URL` uses the `amqps://` scheme in production for TLS.
 - `R2_PUBLIC_URL` and `NEXT_PUBLIC_R2_PUBLIC_URL` should point at the public base URL used to serve HLS assets and thumbnails.
 - `AUTH_SECRET` should be a long random secret in production.
 - `WORKER_SHARED_SECRET` should be set in both services to protect worker callbacks.
@@ -125,7 +119,8 @@ Set these for the `worker` deployment:
 CLOUDFLARE_ACCOUNT_ID="..."
 R2_ACCESS_KEY_ID="..."
 R2_SECRET_ACCESS_KEY="..."
-RABBIT_URL="amqps://user:pass@..."
+UPSTASH_REDIS_REST_URL="..."
+UPSTASH_REDIS_REST_TOKEN="..."
 BACKEND_URL="https://<your-web-domain>"
 WORKER_SHARED_SECRET="..."
 ```
@@ -178,7 +173,7 @@ After deploy, verify:
 
 - the service stays healthy after restart
 - FFmpeg is available in the runtime image
-- the worker can connect to RabbitMQ and consume from the queue
+- the worker can connect to Redis and consume from the queue
 - callback requests to the web app succeed
 
 ### Step 5. Validate the full flow
@@ -188,7 +183,7 @@ Run a real upload through production:
 1. sign in
 2. upload a sample video
 3. confirm a row is created in Postgres
-4. confirm a RabbitMQ job is queued and consumed
+4. confirm a Redis job is queued and consumed
 5. confirm HLS assets appear in R2
 6. confirm `/tasks` shows progress
 7. confirm `/w/[id]` plays successfully
@@ -260,7 +255,7 @@ Check:
 
 Check:
 
-- RabbitMQ connection and credentials (`RABBIT_URL`)
+- Upstash Redis connection and credentials (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`)
 - worker health
 - FFmpeg availability in the worker runtime
 - R2 credentials and bucket permissions

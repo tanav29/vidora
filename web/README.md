@@ -5,7 +5,7 @@ The web app is a Next.js dashboard and playback surface for Vidora.
 ## Responsibilities
 
 - Handles Google authentication with Better Auth
-- Accepts uploads and enqueues worker jobs
+- Accepts uploads and enqueues Redis jobs
 - Shows user-scoped library and job state
 - Serves playback metadata and public watch pages
 

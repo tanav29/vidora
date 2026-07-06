@@ -44,8 +44,7 @@ Node.js background service that consumes queued jobs, downloads source files, ru
 
 - PostgreSQL for users, sessions, and video metadata
 - Prisma for schema and database access
-- RabbitMQ for the job queue
-- Upstash Redis for transient job status
+- Upstash Redis for the job queue and transient job status
 - UploadThing for intake uploads and thumbnail uploads
 - Cloudflare R2 for processed playback assets
 
@@ -56,7 +55,6 @@ flowchart LR
     U[User Browser]
     W[Next.js Web App]
     DB[(PostgreSQL)]
-    MQ[RabbitMQ]
     RS[(Upstash Redis)]
     UT[UploadThing]
     WK[Worker + FFmpeg]
@@ -65,10 +63,9 @@ flowchart LR
     U --> W
     U --> UT
     W --> DB
-    W --> MQ
     W --> RS
     W --> UT
-    MQ --> WK
+    RS --> WK
     WK --> UT
     WK --> R2
     WK --> W
@@ -78,7 +75,7 @@ flowchart LR
 ## Processing Flow
 
 1. A user signs in and uploads a video from the web app.
-2. The web app stores metadata in Postgres and publishes a job to RabbitMQ.
+2. The web app stores metadata in Postgres and publishes a job to Redis.
 3. The worker pulls the job, downloads the source asset, and transcodes it with FFmpeg.
 4. The worker generates HLS playlists and segment files for multiple resolutions.
 5. The processed files are uploaded to Cloudflare R2.
@@ -93,7 +90,7 @@ flowchart LR
 - Tailwind CSS
 - NextAuth
 - Prisma + PostgreSQL
-- RabbitMQ
+- Upstash Redis
 - UploadThing
 - Cloudflare R2
 - FFmpeg
@@ -108,7 +105,7 @@ flowchart LR
 - Bun
 - FFmpeg
 - PostgreSQL
-- RabbitMQ (see [RABBITMQ.md](./RABBITMQ.md))
+- Upstash Redis
 - Cloudflare R2 bucket
 - UploadThing app
 
@@ -136,7 +133,6 @@ Create `web/.env`:
 DATABASE_URL="postgresql://..."
 UPSTASH_REDIS_REST_URL="..."
 UPSTASH_REDIS_REST_TOKEN="..."
-RABBIT_URL="amqp://guest:guest@localhost:5672/"
 R2_PUBLIC_URL="..."
 NEXT_PUBLIC_R2_PUBLIC_URL="..."
 UPLOADTHING_TOKEN="..."
@@ -152,7 +148,8 @@ Create `worker/.env`:
 CLOUDFLARE_ACCOUNT_ID="..."
 R2_ACCESS_KEY_ID="..."
 R2_SECRET_ACCESS_KEY="..."
-RABBIT_URL="amqp://guest:guest@localhost:5672/"
+UPSTASH_REDIS_REST_URL="..."
+UPSTASH_REDIS_REST_TOKEN="..."
 BACKEND_URL="http://localhost:3000"
 WORKER_SHARED_SECRET=""
 ```

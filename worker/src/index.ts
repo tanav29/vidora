@@ -1,22 +1,12 @@
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import axios from "axios";
-import { S3Client } from "@aws-sdk/client-s3";
-import { execSync } from "child_process";
 import { pipeline } from "stream/promises";
 import { UTApi } from "uploadthing/server";
-import {
-  getChannel,
-  QUEUE,
-  close,
-  setupQueues,
-  getRetryCount,
-  MAX_RETRIES,
-  onReconnect,
-} from "./rabbitmq.js";
+import { MAX_RETRIES, drainDueRetries, popJob, scheduleRetry } from "./queue.js";
 
 dotenv.config();
 
@@ -84,16 +74,10 @@ async function encodeResolution(
       playlistPath,
     ]);
 
-    ffmpeg.on("error", (err) => {
-      reject(new Error(`ffmpeg exited with error: ${err}`));
-    });
-
+    ffmpeg.on("error", (err) => reject(new Error(`ffmpeg exited with error: ${err}`)));
     ffmpeg.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`ffmpeg exited with code ${code}`));
-      }
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited with code ${code}`));
     });
   });
 }
@@ -113,16 +97,10 @@ async function generateThumbnail(inputPath: string, outputPath: string) {
       outputPath,
     ]);
 
-    ffmpeg.on("error", (err) => {
-      reject(new Error(`ffmpeg thumbnail error: ${err}`));
-    });
-
+    ffmpeg.on("error", (err) => reject(new Error(`ffmpeg thumbnail error: ${err}`)));
     ffmpeg.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`ffmpeg thumbnail exited with code ${code}`));
-      }
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg thumbnail exited with code ${code}`));
     });
   });
 }
@@ -175,9 +153,7 @@ async function generateThumbnailSprites(
         spritePath,
       ]);
 
-      ffmpeg.on("error", (err) =>
-        reject(new Error(`ffmpeg sprite error: ${err}`)),
-      );
+      ffmpeg.on("error", (err) => reject(new Error(`ffmpeg sprite error: ${err}`)));
       ffmpeg.on("close", (code) => {
         if (code === 0) resolve();
         else reject(new Error(`ffmpeg sprite exited with code ${code}`));
@@ -197,11 +173,10 @@ async function generateThumbnailSprites(
     const startStr = formatVttTime(startTime);
     const endStr = formatVttTime(endTime);
     const x = col * SPRITE_THUMB_WIDTH;
-    const y = 0;
     const spriteFile = `sprite_${String(sheetIndex).padStart(3, "0")}.jpg`;
 
     vttLines.push(`${startStr} --> ${endStr}`);
-    vttLines.push(`${spriteFile}#xywh=${x},${y},${SPRITE_THUMB_WIDTH},${thumbHeight}`);
+    vttLines.push(`${spriteFile}#xywh=${x},0,${SPRITE_THUMB_WIDTH},${thumbHeight}`);
     vttLines.push("");
   }
 
@@ -284,7 +259,6 @@ export async function downloadUploadThing(url: string, outPath: string) {
   }
 
   fs.renameSync(tempPath, outPath);
-
   console.log(`> Downloaded video ${stats.size} bytes to ${outPath}`);
 }
 
@@ -307,10 +281,7 @@ async function uploadToR2(
       );
       return;
     } catch (error) {
-      console.error(
-        `Upload attempt ${attempt}/${retries} failed for ${key}:`,
-        error,
-      );
+      console.error(`Upload attempt ${attempt}/${retries} failed for ${key}:`, error);
       if (attempt === retries) {
         throw new Error(`Failed to upload ${key} after ${retries} attempts`);
       }
@@ -340,6 +311,7 @@ function cleanup(paths: string[]) {
 interface Job {
   name: string;
   ext: string;
+  attempts?: number;
 }
 
 async function reportStatus(
@@ -348,22 +320,16 @@ async function reportStatus(
   progress?: number,
 ) {
   const nextProgress =
-    progress ??
-    (status === "done" ? 100 : status === "pending" ? 0 : undefined);
+    progress ?? (status === "done" ? 100 : status === "pending" ? 0 : undefined);
 
   try {
     const headers = process.env.WORKER_SHARED_SECRET
-      ? {
-          "x-worker-secret": process.env.WORKER_SHARED_SECRET,
-        }
+      ? { "x-worker-secret": process.env.WORKER_SHARED_SECRET }
       : undefined;
 
     await axios.post(
       `${process.env.BACKEND_URL}/api/status/${jobId}`,
-      {
-        status,
-        progress: nextProgress,
-      },
+      { status, progress: nextProgress },
       headers ? { headers } : undefined,
     );
   } catch (error) {
@@ -384,7 +350,15 @@ function parseJob(raw: string): Job | null {
       typeof parsed.name === "string" &&
       typeof parsed.ext === "string"
     ) {
-      return { name: parsed.name, ext: parsed.ext };
+      return {
+        name: parsed.name,
+        ext: parsed.ext,
+        attempts:
+          typeof (parsed as { attempts?: unknown }).attempts === "number" &&
+          Number.isFinite((parsed as { attempts?: number }).attempts ?? NaN)
+            ? (parsed as { attempts: number }).attempts
+            : 0,
+      };
     }
   } catch {
     return null;
@@ -402,29 +376,23 @@ async function processJob(job: Job) {
   const thumbnailPath = path.join(tmpDir, `${name}_thumb.jpg`);
 
   try {
-    // Ensure tmp directory exists
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir, { recursive: true });
     }
 
-    // Download the video
     await downloadUploadThing(url, inputPath);
     await reportStatus(name, "processing", 10);
 
-    // Generate thumbnail
     console.log("> Generating thumbnail...");
     await generateThumbnail(inputPath, thumbnailPath);
     await reportStatus(name, "processing", 15);
 
-    // Check if input file exists
     if (!fs.existsSync(inputPath)) {
       throw new Error(`Input file not found: ${inputPath}`);
     }
 
-    // Create output directory
     fs.mkdirSync(outputDir, { recursive: true });
 
-    // Encode all resolutions
     for (const resolution of resolutions) {
       console.log(`> Encoding ${resolution.name}...`);
       await encodeResolution(inputPath, outputDir, resolution);
@@ -437,11 +405,9 @@ async function processJob(job: Job) {
       await reportStatus(name, "processing", nextProgress);
     }
 
-    // Create master playlist
     createMasterPlaylist(outputDir);
     await reportStatus(name, "processing", 78);
 
-    // Generate thumbnail sprites for timeline preview
     console.log("> Generating thumbnail sprites...");
     const { vttPath, spritePaths } = await generateThumbnailSprites(
       inputPath,
@@ -449,7 +415,6 @@ async function processJob(job: Job) {
     );
     await reportStatus(name, "processing", 85);
 
-    // Delete input file after encoding
     fs.unlinkSync(inputPath);
 
     console.log("> Uploading to R2...");
@@ -488,50 +453,43 @@ async function processJob(job: Job) {
   }
 }
 
-function createConsumer(ch: any) {
-  return async (msg: any) => {
-    if (!msg) return;
+async function startWorker() {
+  console.log("Worker waiting for jobs...");
 
-    const job = parseJob(msg.content.toString());
-    if (!job) {
-      ch.nack(msg, false, false);
-      return;
+  while (true) {
+    await drainDueRetries();
+
+    const raw = await popJob();
+    if (!raw) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      continue;
     }
+
+    const job = parseJob(raw);
+    if (!job) {
+      continue;
+    }
+
     console.log("Received:", job.name);
 
     try {
       await processJob(job);
-      ch.ack(msg);
+      console.log("Job processed:", job.name);
     } catch (err) {
-      const retryCount = getRetryCount(msg);
-      console.error(`Job ${job.name} failed (attempt ${retryCount + 1}/${MAX_RETRIES}):`, err);
-      if (retryCount < MAX_RETRIES) {
-        ch.reject(msg, false);
+      const attempts = job.attempts ?? 0;
+      console.error(
+        `Job ${job.name} failed (attempt ${attempts + 1}/${MAX_RETRIES}):`,
+        err,
+      );
+
+      if (attempts < MAX_RETRIES) {
+        await scheduleRetry({ ...job, attempts: attempts + 1 });
       } else {
-        ch.ack(msg);
+        await reportStatus(job.name, "failed");
+        console.error(`Job ${job.name} exhausted retries.`);
       }
     }
-  };
+  }
 }
-
-async function startWorker() {
-  const ch = await getChannel();
-  await setupQueues();
-
-  onReconnect(async (ch) => {
-    await setupQueues();
-    await ch.prefetch(1);
-    ch.consume(QUEUE, createConsumer(ch), { noAck: false });
-  });
-
-  await ch.prefetch(1);
-
-  console.log("Worker waiting for jobs…");
-  ch.consume(QUEUE, createConsumer(ch), { noAck: false });
-}
-
-// graceful shutdown
-process.on("SIGINT", () => close().catch(() => process.exit(1)));
-process.on("SIGTERM", () => close().catch(() => process.exit(1)));
 
 startWorker();
