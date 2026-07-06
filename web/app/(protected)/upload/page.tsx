@@ -25,9 +25,9 @@ export const dynamic = "force-dynamic";
 export default function Page() {
   const router = useRouter();
   const [file, setFile] = useState<UploadedFile | null>(null);
-  const [title, setTitle] = useState("Aari Aari");
+  const [title, setTitle] = useState("");
   const [extension, setExtension] = useState<string | null>(null);
-  const [description, setDescription] = useState("Dhurandhar");
+  const [description, setDescription] = useState("");
   const [id] = useState(() => nanoid(16));
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,21 +108,21 @@ export default function Page() {
           </div>
 
           <div className="space-y-2">
-            <Label>
+            <Label className="text-xs font-semibold tracking-tight text-foreground">
               Video File <span className="text-destructive">*</span>
             </Label>
             {file ? (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-4 bg-accent/50 rounded-lg border border-border">
-                  <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                <div className="flex items-center gap-3 p-3 bg-muted/25 rounded-lg border border-border">
+                  <div className="w-8 h-8 rounded-full border border-border bg-muted/40 flex items-center justify-center text-emerald-500">
+                    <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">
+                    <p className="font-semibold text-xs text-foreground truncate">
                       {file.name}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {(file.size / (1024 * 1024)).toFixed(2)} MB
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      {(file.size / (1024 * 1024)).toFixed(2)} mb
                     </p>
                   </div>
                   <Button
@@ -135,27 +135,29 @@ export default function Page() {
                 </div>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 hover:bg-accent/30 transition-all cursor-pointer">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Upload className="w-6 h-6 text-primary" />
+              <div className="border border-dashed border-border rounded-lg p-8 text-center hover:border-foreground/20 hover:bg-muted/15 transition-all duration-150 cursor-pointer">
+                <div className="w-9 h-9 rounded-full border border-border flex items-center justify-center bg-muted/40 mx-auto mb-3 text-foreground/80">
+                  <Upload className="w-4 h-4" />
                 </div>
-                <p className="text-sm font-medium text-foreground mb-4">
+                <p className="text-xs font-semibold text-foreground mb-3">
                   Click to upload or drag and drop
                 </p>
-                <UploadButton
-                  endpoint="videoUploader"
-                  headers={{ "x-video-id": id }}
-                  onClientUploadComplete={async (res) => {
-                    if (res[0]) {
-                      setFile(res[0]);
-                      const ext = res[0].name?.split(".").pop()?.toLowerCase();
-                      if (ext) setExtension(ext);
-                    }
-                  }}
-                  onUploadError={(error: Error) => {
-                    alert(`ERROR! ${error.message}`);
-                  }}
-                />
+                <div className="flex justify-center">
+                  <UploadButton
+                    endpoint="videoUploader"
+                    headers={{ "x-video-id": id }}
+                    onClientUploadComplete={async (res) => {
+                      if (res[0]) {
+                        setFile(res[0]);
+                        const ext = res[0].name?.split(".").pop()?.toLowerCase();
+                        if (ext) setExtension(ext);
+                      }
+                    }}
+                    onUploadError={(error: Error) => {
+                      alert(`ERROR! ${error.message}`);
+                    }}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -163,13 +165,13 @@ export default function Page() {
           <div className="pt-4">
             <Button
               disabled={!file || !title.trim() || isPending || isSuccess}
-              size="lg"
-              className="w-full gap-2"
+              size="default"
+              className="w-full gap-2 h-10"
               onClick={() => uploadVideo()}>
               {isSuccess ? (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  Upload Complete! Redirecting...
+                  Upload Complete
                 </>
               ) : isPending ? (
                 <>

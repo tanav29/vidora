@@ -10,13 +10,13 @@ import {
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  Play,
   Activity,
   MessageSquare,
   LayoutDashboard,
   Upload,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import AuthButton from "./signin";
 
@@ -36,6 +36,7 @@ interface SidebarShellProps {
 export default function SidebarShell({ session }: SidebarShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
@@ -55,50 +56,49 @@ export default function SidebarShell({ session }: SidebarShellProps) {
     <SidebarContext.Provider value={{ collapsed }}>
       <div
         className={cn(
-          "relative flex flex-col border-r border-border/50 bg-card/30 transition-all duration-100 ease-in-out",
-          collapsed ? "w-16" : "w-64",
+          "relative flex flex-col border-r border-border bg-background transition-all duration-150 ease-in-out",
+          collapsed ? "w-16" : "w-60",
         )}
       >
         <div
-          className={cn("p-5", collapsed && "px-3 py-5 flex justify-center")}
+          className={cn("p-4", collapsed && "px-3 py-4 flex justify-center")}
         >
           <Link
             href="/home"
-            className="flex items-center gap-2.5 group"
+            className="flex items-center gap-3 group"
             prefetch
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:shadow-violet-500/20 transition-shadow shrink-0">
-              <Play className="w-3.5 h-3.5 text-white fill-white" />
-            </div>
+            {/* Minimalist Vercel-Style Monochrome Triangle Logo */}
+            <div className="w-5 h-5 bg-foreground shrink-0 transition-transform duration-150 group-hover:scale-105" style={{ clipPath: "polygon(50% 10%, 10% 90%, 90% 90%)" }} />
             {!collapsed && (
-              <span className="font-semibold text-foreground text-xl tracking-tight whitespace-nowrap">
+              <span className="font-semibold text-foreground text-base tracking-tight whitespace-nowrap">
                 vidora
               </span>
             )}
           </Link>
         </div>
 
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
+        <nav className="flex-1 px-2.5 py-2 space-y-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = false;
+            const active = pathname === item.path || (item.path !== "/home" && pathname?.startsWith(item.path));
             return (
               <Link
                 key={item.path}
                 href={item.path}
                 prefetch
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg text-sm transition-colors duration-500 group",
-                  collapsed ? "justify-center px-2 py-2" : "px-3 py-2",
+                  "flex items-center gap-2 rounded-md text-xs transition-colors duration-150 group",
+                  collapsed ? "justify-center px-2 py-2" : "px-3 py-1.5",
                   active
-                    ? "bg-foreground/5 text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                    ? "bg-secondary text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
                 )}
               >
                 <Icon
                   className={cn(
-                    "w-4 h-4 shrink-0 group-hover:text-foreground",
-                    active ? "text-foreground" : "text-muted-foreground/70",
+                    "w-4 h-4 shrink-0 transition-colors duration-150",
+                    active ? "text-foreground" : "text-muted-foreground/70 group-hover:text-foreground",
                   )}
                 />
                 {!collapsed && <span>{item.label}</span>}
@@ -107,19 +107,19 @@ export default function SidebarShell({ session }: SidebarShellProps) {
           })}
         </nav>
 
-        <div className={cn("p-3", collapsed && "px-2 flex justify-center")}>
+        <div className={cn("p-2.5 border-t border-border", collapsed && "px-2 flex justify-center")}>
           <AuthButton session={session} collapsed={collapsed} />
         </div>
 
         <button
           onClick={() => setCollapsed((prev) => !prev)}
-          className="absolute -right-3 top-7 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-border/50 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+          className="absolute -right-3 top-4 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground cursor-pointer"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
-            <PanelLeftOpen className="h-3.5 w-3.5" />
+            <PanelLeftOpen className="h-3 w-3" />
           ) : (
-            <PanelLeftClose className="h-3.5 w-3.5" />
+            <PanelLeftClose className="h-3 w-3" />
           )}
         </button>
       </div>

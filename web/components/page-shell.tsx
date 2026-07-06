@@ -15,10 +15,10 @@ export default function PageShell({
 }: PageShellProps) {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="flex h-14 items-center justify-between px-6">
+      <header className="bg-background sticky top-0 z-10 border-b border-border">
+        <div className="flex h-12 items-center justify-between px-6">
           <div className="min-w-0">
-            <h1 className="text-sm font-medium text-foreground">{title}</h1>
+            <h1 className="text-xs font-semibold tracking-tight text-foreground">{title}</h1>
           </div>
           {right ? <div className="shrink-0">{right}</div> : null}
         </div>

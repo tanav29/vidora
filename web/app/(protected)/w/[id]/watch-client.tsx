@@ -112,8 +112,7 @@ export default function WatchClient({
         variant="outline"
         size="sm"
         onClick={handleLike}
-        // disabled={liked || liking}
-        className={cn("gap-1.5 rounded-full px-4 transition-colors")}
+        className={cn("gap-1.5 px-3 transition-colors")}
       >
         <ThumbsUp className="h-3.5 w-3.5 transition-transform" />
         <span>{formatCount(likes)}</span>
@@ -122,7 +121,7 @@ export default function WatchClient({
       <Button
         variant="outline"
         size="sm"
-        className="gap-1.5 rounded-full px-4"
+        className="gap-1.5 px-3"
         onClick={copyShareLink}
       >
         <Share2 className="h-3.5 w-3.5" />

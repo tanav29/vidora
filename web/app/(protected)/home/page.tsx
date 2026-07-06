@@ -31,15 +31,15 @@ export default async function Page() {
       }
     >
       {videos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-12 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <Video className="h-5 w-5 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-muted/10 p-12 text-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-muted/40 text-foreground/80">
+            <Video className="h-4 w-4" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-medium text-sm">No videos yet</h3>
-            <p className="text-sm text-muted-foreground">Upload your first video to get started.</p>
+            <h3 className="font-semibold text-xs tracking-tight text-foreground">No videos yet</h3>
+            <p className="text-xs text-muted-foreground">Upload your first video to get started.</p>
           </div>
-          <Button asChild variant="secondary" size="sm">
+          <Button asChild variant="outline" size="sm" className="h-9">
             <Link href="/upload">Upload video</Link>
           </Button>
         </div>

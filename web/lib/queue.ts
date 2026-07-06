@@ -8,8 +8,18 @@ export type QueueJob = {
   attempts?: number;
 };
 
-const redis = Redis.fromEnv();
+function getRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    throw new Error("Upstash Redis is not configured");
+  }
+
+  return new Redis({ url, token });
+}
 
 export async function publishJob(job: QueueJob) {
+  const redis = getRedis();
   await (redis as any).lpush(QUEUE, JSON.stringify(job));
 }

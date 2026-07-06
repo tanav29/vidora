@@ -42,14 +42,16 @@ export default function TasksClient() {
 
   if (videos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+      <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-muted/10 p-12 text-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-muted/40 text-foreground/80">
+          <CheckCircle2 className="h-4 w-4" />
         </div>
-        <h3 className="text-sm font-semibold">No active transcoding</h3>
-        <p className="text-sm text-muted-foreground">
-          No pending, processing, or failed jobs right now.
-        </p>
+        <div className="space-y-1">
+          <h3 className="font-semibold text-xs tracking-tight text-foreground">No active transcoding</h3>
+          <p className="text-xs text-muted-foreground">
+            No pending, processing, or failed jobs right now.
+          </p>
+        </div>
       </div>
     );
   }

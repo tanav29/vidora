@@ -7,6 +7,7 @@ export function GoogleSignInButton() {
   return (
     <Button
       type="button"
+      variant="outline"
       className="w-full gap-2 cursor-pointer"
       onClick={async () => {
         await signIn.social({

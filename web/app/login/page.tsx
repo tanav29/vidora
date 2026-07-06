@@ -17,15 +17,13 @@ export default async function LoginPage() {
       {/* Logo */}
 
       {/* Card */}
-      <div className="w-full max-w-sm space-y-6 rounded-xl border bg-card/50 p-8">
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8 shadow-sm">
         <div className="flex flex-col items-center justify-center">
-          <Link href="/" className="mb-8 flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500">
-              <Play className="h-5 w-5 fill-white text-white" />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">vidora</span>
+          <Link href="/" className="mb-8 flex items-center gap-2.5 group">
+            <div className="w-6 h-6 bg-foreground" style={{ clipPath: "polygon(50% 10%, 10% 90%, 90% 90%)" }} />
+            <span className="text-sm font-semibold tracking-tight text-foreground">vidora</span>
           </Link>
-          <p className="text-sm text-muted-foreground">Sign in to continue</p>
+          <p className="text-xs text-muted-foreground">Sign in to continue</p>
         </div>
 
         <GoogleSignInButton />

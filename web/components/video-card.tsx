@@ -113,12 +113,12 @@ export default function VideoCard({ video }: VideoCardProps) {
   };
 
   const statusConfig = {
-    failed: { label: "Failed", class: "bg-destructive/10 text-destructive" },
+    failed: { label: "Failed", dotClass: "bg-destructive" },
     processing: {
       label: "Processing",
-      class: "bg-amber-500/10 text-amber-600",
+      dotClass: "bg-amber-500 animate-pulse",
     },
-    done: { label: null, class: "" },
+    done: { label: "Ready", dotClass: "bg-emerald-500" },
   };
 
   const status =
@@ -130,38 +130,38 @@ export default function VideoCard({ video }: VideoCardProps) {
 
   return (
     <Link href={`/w/${video.id}`} className="group block">
-      <div className="relative overflow-hidden rounded-lg bg-muted aspect-video mb-3 border border-transparent group-hover:border-border/50 transition-all duration-200">
+      <div className="relative overflow-hidden rounded-md bg-muted aspect-video mb-3 border border-border group-hover:border-foreground/20 transition-all duration-150">
         <img
           src={getThumbnailUrl(video.id, video.thumbnail)}
           alt={video.title}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="h-full w-full object-cover"
           loading="lazy"
         />
-
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
-
-        {status !== "done" && (
-          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded">
-            {statusConfig[status].label}
-          </div>
-        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/[0.02] transition-colors duration-150" />
       </div>
 
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0 pl-2">
-          <h3 className="font-medium text-foreground text-sm leading-tight line-clamp-2 group-hover:text-foreground/80 transition-colors">
+      <div className="flex items-start justify-between gap-2 px-1">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-foreground text-xs tracking-tight leading-snug truncate group-hover:text-foreground/80 transition-colors">
             {video.title}
           </h3>
 
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground font-mono">
+            {/* Status dot */}
+            <span className="flex items-center gap-1.5">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${statusConfig[status].dotClass}`} />
+              <span className="text-[9px] uppercase tracking-wider">{statusConfig[status].label}</span>
+            </span>
+
+            <span className="text-border">|</span>
             <span>{formatDate(video.createdAt)}</span>
+
             {status === "done" && (
               <>
-                <span className="text-border">•</span>
-                <div className="flex items-center gap-1">
-                  <Eye className="w-3 h-3" />
-                  <span>{formatNumber(video.views)}</span>
-                </div>
+                <span className="text-border">|</span>
+                <span className="flex items-center gap-1">
+                  <span>{formatNumber(video.views)} views</span>
+                </span>
               </>
             )}
           </div>

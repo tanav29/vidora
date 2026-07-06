@@ -53,9 +53,29 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Database error:", error);
+    return NextResponse.json(
+      { error: "Failed to create video record" },
+      { status: 500 },
+    );
   }
 
-  await publishJob({ name: id, ext: extension });
+  try {
+    await publishJob({ name: id, ext: extension });
+  } catch (error) {
+    console.error("Queue publish error:", error);
+
+    await db.video.update({
+      where: { id },
+      data: {
+        status: "failed",
+      },
+    });
+
+    return NextResponse.json(
+      { error: "Upload saved, but transcoding could not be queued" },
+      { status: 503 },
+    );
+  }
 
   return new NextResponse("ok");
 }

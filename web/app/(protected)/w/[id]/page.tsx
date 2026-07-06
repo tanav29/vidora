@@ -40,67 +40,67 @@ export default async function Page({
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 items-center px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 border-b border-border bg-background">
+        <div className="mx-auto flex h-12 items-center px-4 sm:px-6 lg:px-8">
           <Link href="/home">
             <Button
               variant="ghost"
               size="sm"
               className="gap-2 -ml-2 text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
               Back
             </Button>
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-4xl px-6 py-8">
         {/* Player */}
-        <div className="relative w-full" style={{ aspectRatio: "16/9" }}>
+        <div className="relative w-full overflow-hidden rounded-lg border border-border bg-muted/10" style={{ aspectRatio: "16/9" }}>
           {video.status === "done" ? (
             <VideoJsPlayer id={id} />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">
-                <Activity className="h-6 w-6 animate-pulse text-white/50" />
+            <div className="flex h-full flex-col items-center justify-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-muted/40 text-foreground/80">
+                <Activity className="h-4 w-4 animate-pulse" />
               </div>
-              <p className="text-sm font-medium text-white/40 tracking-wide">
-                Processing video&hellip;
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Processing video...
               </p>
             </div>
           )}
         </div>
 
         {/* Info */}
-        <div className="mt-5">
+        <div className="mt-6">
           {/* Title */}
-          <h1 className="text-xl font-semibold leading-snug tracking-tight text-foreground">
+          <h1 className="text-lg font-semibold tracking-tight text-foreground leading-snug">
             {video.title}
           </h1>
 
           {/* Meta row */}
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
             {/* Author + stats */}
             <div className="flex items-center gap-3">
               {user?.image ? (
                 <img
                   src={user.image}
                   alt={user.name ?? "User"}
-                  className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-border/60"
+                  className="h-8 w-8 shrink-0 rounded-full object-cover border border-border"
                 />
               ) : (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary ring-2 ring-border/60">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-xs font-semibold text-foreground">
                   {initials}
                 </div>
               )}
               <div className="leading-tight">
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-xs font-semibold text-foreground">
                   {user?.name ?? "Unknown"}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                   {formatViews(video.views ?? 0)} views
-                  <span className="mx-1.5 opacity-40">&bull;</span>
+                  <span className="mx-1.5 opacity-40">|</span>
                   {timeAgo}
                 </p>
               </div>
@@ -112,8 +112,8 @@ export default async function Page({
 
           {/* Description */}
           {video.description && (
-            <div className="mt-5 rounded-xl border border-border/50 bg-muted/40 px-4 py-3.5">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+            <div className="mt-6 rounded-lg border border-border bg-muted/10 px-4 py-4">
+              <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                 {video.description}
               </p>
             </div>
