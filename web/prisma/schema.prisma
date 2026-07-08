@@ -24,14 +24,17 @@ model Video {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified Boolean
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  videos        Video[]
+  id                 String   @id @default(cuid())
+  name               String?
+  email              String   @unique
+  emailVerified      Boolean
+  image              String?
+  plan               String   @default("free")
+  monthlyUploadCount Int      @default(0)
+  uploadWindowStart  DateTime @default(now()) @db.Timestamptz(3)
+  accounts           Account[]
+  sessions           Session[]
+  videos             Video[]
 
   createdAt DateTime @db.Timestamptz(3)
   updatedAt DateTime @db.Timestamptz(3)

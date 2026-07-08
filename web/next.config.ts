@@ -11,10 +11,6 @@ const nextConfig: NextConfig = {
     ],
   },
   devIndicators: false,
-  experimental: {
-    optimizeCss: true,
-    optimizePackageImports: ["lucide-react"],
-  },
 };
 
 export default nextConfig;

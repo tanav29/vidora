@@ -1,23 +1,33 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Upload, CheckCircle2, X, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { AlertCircle, CheckCircle2, Crown, Loader2, Upload, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { nanoid } from "nanoid";
+import { toast } from "sonner";
+
 import PageShell from "@/components/page-shell";
 import { UploadButton } from "@/components/uploadthing";
-import { nanoid } from "nanoid";
-import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface UploadedFile {
   name: string;
   size: number;
   url: string;
   key: string;
+}
+
+interface QuotaResponse {
+  plan: "free" | "premium";
+  limit: number;
+  used: number;
+  remaining: number;
+  resetAt: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -32,13 +42,29 @@ export default function Page() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const quotaQuery = useQuery<QuotaResponse>({
+    queryKey: ["upload-quota"],
+    queryFn: async () => {
+      const res = await fetch("/api/me/quota", {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load quota");
+      }
+
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
   const {
     mutate: uploadVideo,
     isPending,
     isSuccess,
   } = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/upload`, {
+      const res = await fetch("/api/upload", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -49,10 +75,13 @@ export default function Page() {
           extension,
         }),
       });
+
       if (!res.ok) {
-        toast.error("Upload failed");
+        const payload = await res.json().catch(() => null);
+        toast.error(payload?.error ?? "Upload failed");
         return null;
       }
+
       toast.success("Uploaded successfully");
       setTimeout(() => {
         router.push("/home");
@@ -66,14 +95,54 @@ export default function Page() {
     setExtension(null);
   };
 
+  const quota = quotaQuery.data;
+  const isQuotaLocked = quota?.remaining === 0;
+
   return (
     <main>
       <PageShell title="Upload" description="Add a new video">
         <div className="mx-auto max-w-2xl space-y-6">
+          <div className="rounded-xl border border-border bg-muted/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold tracking-tight text-foreground">
+                  <Crown className="h-4 w-4" />
+                  {quotaQuery.isLoading
+                    ? "Loading plan details"
+                    : quota?.plan === "premium"
+                      ? "Premium plan"
+                      : "Free plan"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {quotaQuery.isLoading
+                    ? "Checking your current monthly upload allowance."
+                    : quota
+                      ? `You have used ${quota.used} of ${quota.limit} uploads this month.`
+                      : "Your monthly quota could not be loaded."}
+                </p>
+              </div>
+              {!quotaQuery.isLoading && quota?.plan === "free" ? (
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/api/billing/checkout">Upgrade to Premium</Link>
+                </Button>
+              ) : null}
+            </div>
+            {isQuotaLocked ? (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-600">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium">Monthly upload limit reached</p>
+                  <p>
+                    Free accounts can upload 3 videos per month. Premium accounts can upload 10.
+                    Upgrade to continue this month.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight">
-              Video details
-            </h2>
+            <h2 className="text-base font-semibold tracking-tight">Video details</h2>
             <p className="text-sm text-muted-foreground">
               Fill in the information about your video.
             </p>
@@ -91,7 +160,7 @@ export default function Page() {
               onChange={(e) => setTitle(e.target.value)}
               className="h-11"
             />
-            <div className="text-xs text-muted-foreground text-right">
+            <div className="text-right text-xs text-muted-foreground">
               {title.trim().length} / 120 characters
             </div>
           </div>
@@ -111,17 +180,31 @@ export default function Page() {
             <Label className="text-xs font-semibold tracking-tight text-foreground">
               Video File <span className="text-destructive">*</span>
             </Label>
-            {file ? (
+            {isQuotaLocked ? (
+              <div className="rounded-lg border border-dashed border-border bg-muted/15 p-8 text-center">
+                <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-foreground/80">
+                  <Crown className="h-4 w-4" />
+                </div>
+                <p className="mb-2 text-xs font-semibold text-foreground">
+                  Uploads are paused until you upgrade
+                </p>
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Your free monthly quota is exhausted. Premium raises the cap to 10 uploads per
+                  month.
+                </p>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/api/billing/checkout">Go Premium</Link>
+                </Button>
+              </div>
+            ) : file ? (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 bg-muted/25 rounded-lg border border-border">
-                  <div className="w-8 h-8 rounded-full border border-border bg-muted/40 flex items-center justify-center text-emerald-500">
-                    <CheckCircle2 className="w-4 h-4" />
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/25 p-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted/40 text-emerald-500">
+                    <CheckCircle2 className="h-4 w-4" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-xs text-foreground truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground font-mono">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-foreground">{file.name}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground">
                       {(file.size / (1024 * 1024)).toFixed(2)} mb
                     </p>
                   </div>
@@ -129,17 +212,18 @@ export default function Page() {
                     variant="ghost"
                     size="icon"
                     onClick={removeFile}
-                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                    <X className="w-4 h-4" />
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="border border-dashed border-border rounded-lg p-8 text-center hover:border-foreground/20 hover:bg-muted/15 transition-all duration-150 cursor-pointer">
-                <div className="w-9 h-9 rounded-full border border-border flex items-center justify-center bg-muted/40 mx-auto mb-3 text-foreground/80">
-                  <Upload className="w-4 h-4" />
+              <div className="cursor-pointer rounded-lg border border-dashed border-border p-8 text-center transition-all duration-150 hover:border-foreground/20 hover:bg-muted/15">
+                <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-muted/40 text-foreground/80">
+                  <Upload className="h-4 w-4" />
                 </div>
-                <p className="text-xs font-semibold text-foreground mb-3">
+                <p className="mb-3 text-xs font-semibold text-foreground">
                   Click to upload or drag and drop
                 </p>
                 <div className="flex justify-center">
@@ -164,23 +248,26 @@ export default function Page() {
 
           <div className="pt-4">
             <Button
-              disabled={!file || !title.trim() || isPending || isSuccess}
+              disabled={
+                !file || !title.trim() || isPending || isSuccess || isQuotaLocked
+              }
               size="default"
-              className="w-full gap-2 h-10"
-              onClick={() => uploadVideo()}>
+              className="h-10 w-full gap-2"
+              onClick={() => uploadVideo()}
+            >
               {isSuccess ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="h-4 w-4" />
                   Upload Complete
                 </>
               ) : isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Uploading...
                 </>
               ) : (
                 <>
-                  <Upload className="w-4 h-4" />
+                  <Upload className="h-4 w-4" />
                   Upload Video
                 </>
               )}

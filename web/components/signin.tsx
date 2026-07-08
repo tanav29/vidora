@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, signOut } from "@/lib/auth-client";
+import Link from "next/link";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -18,6 +19,8 @@ export default function AuthButton({
   session: any;
   collapsed?: boolean;
 }) {
+  const plan = session?.user?.plan === "premium" ? "Premium" : "Free";
+
   if (session) {
     return (
       <DropdownMenu>
@@ -36,6 +39,9 @@ export default function AuthButton({
                   <h2 className="text-muted-foreground text-xs text-ellipsis">
                     {session.user?.email!}
                   </h2>
+                  <h2 className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                    {plan} plan
+                  </h2>
                 </div>
                 <img
                   src={session.user?.image ?? ""}
@@ -50,7 +56,9 @@ export default function AuthButton({
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuGroup>
             <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Billing</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/api/billing/checkout">Upgrade to Premium</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"
               onClick={() =>

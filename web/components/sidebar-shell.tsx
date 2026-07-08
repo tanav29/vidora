@@ -56,49 +56,43 @@ export default function SidebarShell({ session }: SidebarShellProps) {
     <SidebarContext.Provider value={{ collapsed }}>
       <div
         className={cn(
-          "relative flex flex-col border-r border-border bg-background transition-all duration-150 ease-in-out",
+          "relative flex flex-col border-r border-border bg-background transition-opacity duration-150 ease-in-out",
           collapsed ? "w-16" : "w-60",
         )}
       >
-        <div
-          className={cn("p-4", collapsed && "px-3 py-4 flex justify-center")}
-        >
-          <Link
-            href="/home"
-            className="flex items-center gap-3 group"
-            prefetch
-          >
-            {/* Minimalist Vercel-Style Monochrome Triangle Logo */}
-            <div className="w-5 h-5 bg-foreground shrink-0 transition-transform duration-150 group-hover:scale-105" style={{ clipPath: "polygon(50% 10%, 10% 90%, 90% 90%)" }} />
-            {!collapsed && (
-              <span className="font-semibold text-foreground text-base tracking-tight whitespace-nowrap">
-                vidora
-              </span>
-            )}
+        <div className={cn("p-4", collapsed && "flex justify-center")}>
+          <Link href="/home" className="flex items-center gap-3 group" prefetch>
+            <span className="font-semibold text-foreground text-base tracking-tight whitespace-nowrap">
+              {collapsed ? "v" : "vidora"}
+            </span>
           </Link>
         </div>
 
         <nav className="flex-1 px-2.5 py-2 space-y-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.path || (item.path !== "/home" && pathname?.startsWith(item.path));
+            const active =
+              pathname === item.path ||
+              (item.path !== "/home" && pathname?.startsWith(item.path));
             return (
               <Link
                 key={item.path}
                 href={item.path}
                 prefetch
                 className={cn(
-                  "flex items-center gap-2 rounded-md text-xs transition-colors duration-150 group",
-                  collapsed ? "justify-center px-2 py-2" : "px-3 py-1.5",
+                  "flex items-center gap-2 text-sm group",
+                  collapsed ? "justify-center p-2" : "px-3 py-1.5",
                   active
-                    ? "bg-secondary text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Icon
                   className={cn(
                     "w-4 h-4 shrink-0 transition-colors duration-150",
-                    active ? "text-foreground" : "text-muted-foreground/70 group-hover:text-foreground",
+                    active
+                      ? "text-foreground"
+                      : "text-muted-foreground/70 group-hover:text-foreground",
                   )}
                 />
                 {!collapsed && <span>{item.label}</span>}
@@ -107,7 +101,12 @@ export default function SidebarShell({ session }: SidebarShellProps) {
           })}
         </nav>
 
-        <div className={cn("p-2.5 border-t border-border", collapsed && "px-2 flex justify-center")}>
+        <div
+          className={cn(
+            "p-2.5 border-t border-border",
+            collapsed && "px-2 flex justify-center",
+          )}
+        >
           <AuthButton session={session} collapsed={collapsed} />
         </div>
 
