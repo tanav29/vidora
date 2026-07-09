@@ -10,6 +10,7 @@ const uploadSchema = z.object({
   description: z.string().trim().max(10_000).optional().default(""),
   id: z.string().trim().min(1),
   extension: z.enum(["mp4", "mov", "avi", "mkv", "webm"]),
+  s3Key: z.string().trim().min(1),
   thumbnailUrl: z.string().url().optional().nullable(),
 });
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { title, description, id, extension } = body;
+  const { title, description, id, extension, s3Key } = body;
 
   try {
     await db.$transaction(async (tx) => {
@@ -103,6 +104,7 @@ export async function POST(req: Request) {
           title,
           description,
           extension,
+          s3Key,
           likes: 0,
           thumbnail: "https://picsum.photos/720/1280",
           userId: session.user.id,
