@@ -32,8 +32,9 @@ export default function Page() {
   const router = useRouter();
   const [file, setFile] = useState<UploadedFile | null>(null);
   const [title, setTitle] = useState("");
-  const [extension, setExtension] =
-    useState<UploadedFile["extension"] | null>(null);
+  const [extension, setExtension] = useState<UploadedFile["extension"] | null>(
+    null,
+  );
   const [description, setDescription] = useState("");
   const [id] = useState(() => nanoid(16));
 
@@ -160,16 +161,11 @@ export default function Page() {
             ) : null}
           </div>
 
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight">
-              Video details
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Fill in the information about your video.
-            </p>
-          </div>
+          <h2 className="text-base font-semibold tracking-tight">
+            Video details
+          </h2>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
             </Label>
@@ -186,7 +182,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -197,7 +193,7 @@ export default function Page() {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label className="text-xs font-semibold tracking-tight text-foreground">
               Video File <span className="text-destructive">*</span>
             </Label>
