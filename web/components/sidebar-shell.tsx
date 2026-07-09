@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Activity,
+  Crown,
   MessageSquare,
   LayoutDashboard,
   Upload,
@@ -26,6 +27,7 @@ const navItems = [
   { path: "/home", label: "Videos", icon: LayoutDashboard },
   { path: "/tasks", label: "Tasks", icon: Activity },
   { path: "/upload", label: "Upload", icon: Upload },
+  { path: "/upgrade", label: "Upgrade", icon: Crown },
   { path: "/feedback", label: "Feedback", icon: MessageSquare },
 ];
 

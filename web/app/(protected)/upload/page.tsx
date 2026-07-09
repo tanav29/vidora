@@ -36,8 +36,6 @@ interface QuotaResponse {
   cycleStart: string;
 }
 
-export const dynamic = "force-dynamic";
-
 export default function Page() {
   const router = useRouter();
   const [file, setFile] = useState<UploadedFile | null>(null);
@@ -61,7 +59,6 @@ export default function Page() {
 
       return res.json();
     },
-    staleTime: 30_000,
   });
 
   const quota = quotaQuery.data;
@@ -129,21 +126,27 @@ export default function Page() {
                     : quota?.plan === "plus"
                       ? "Plus plan"
                       : "Free plan"}
+                  <p className="text-xs text-muted-foreground">
+                    {quotaQuery.isLoading
+                      ? "Checking your current monthly upload allowance."
+                      : quota
+                        ? `You have used ${quota.uploads}/${quota.limit} uploads this month.`
+                        : "Your monthly quota could not be loaded."}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {quotaQuery.isLoading
-                    ? "Checking your current monthly upload allowance."
-                    : quota
-                      ? `You have used ${quota.uploads} of ${quota.limit} uploads this month.`
-                      : "Your monthly quota could not be loaded."}
-                </p>
-                {quota ? (
+                {/* {quota ? (
                   <p className="text-xs text-muted-foreground">
                     {resetLabel
-                      ? `Current cycle started ${new Date(quota.cycleStart).toLocaleDateString()} and resets on ${resetLabel}.`
+                      ? `Current cycle started ${new Date(
+                          quota.cycleStart,
+                        ).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })} and resets on ${resetLabel}.`
                       : `Current cycle started ${new Date(quota.cycleStart).toLocaleDateString()}.`}
                   </p>
-                ) : null}
+                ) : null} */}
               </div>
               {!quotaQuery.isLoading && quota?.plan === "free" ? (
                 <Button asChild size="sm" variant="outline">
@@ -221,7 +224,8 @@ export default function Page() {
                   Unable to load upload allowance
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Refresh the page to try again. Uploads stay locked until quota data is available.
+                  Refresh the page to try again. Uploads stay locked until quota
+                  data is available.
                 </p>
               </div>
             ) : isQuotaLocked ? (
@@ -263,8 +267,7 @@ export default function Page() {
                     variant="ghost"
                     size="icon"
                     onClick={removeFile}
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  >
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -284,7 +287,10 @@ export default function Page() {
                     onClientUploadComplete={async (res) => {
                       if (res[0]) {
                         setFile(res[0]);
-                        const ext = res[0].name?.split(".").pop()?.toLowerCase();
+                        const ext = res[0].name
+                          ?.split(".")
+                          .pop()
+                          ?.toLowerCase();
                         if (ext) setExtension(ext);
                         if (!title.trim()) {
                           setTitle(res[0].name.replace(/\.[^/.]+$/, ""));
@@ -312,8 +318,7 @@ export default function Page() {
               }
               size="default"
               className="h-10 w-full gap-2"
-              onClick={() => uploadVideo()}
-            >
+              onClick={() => uploadVideo()}>
               {isSuccess ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
