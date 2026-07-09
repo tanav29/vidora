@@ -30,12 +30,12 @@ export default async function LandingPage() {
           </Link>
 
           {session?.user ? (
-            <Button asChild size="sm" variant="outline">
-              <Link href="/home">Dashboard</Link>
+            <Button render={<Link href="/home" />} size="sm" variant="outline" nativeButton={false}>
+              Dashboard
             </Button>
           ) : (
-            <Button asChild size="sm" variant="outline">
-              <Link href="/login">Login</Link>
+            <Button render={<Link href="/login" />} size="sm" variant="outline" nativeButton={false}>
+              Login
             </Button>
           )}
         </header>
@@ -53,18 +53,18 @@ export default async function LandingPage() {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             {session?.user ? (
-              <Button asChild size="default">
-                <Link href="/upload">Start Uploading</Link>
+              <Button render={<Link href="/upload" />} size="default" nativeButton={false}>
+                Start Uploading
               </Button>
             ) : (
-              <Button asChild size="default">
-                <Link href="/login">Get Started</Link>
+              <Button render={<Link href="/login" />} size="default" nativeButton={false}>
+                Get Started
               </Button>
             )}
 
             {session?.user && (
-              <Button asChild variant="outline" size="default">
-                <Link href="/home">View Dashboard</Link>
+              <Button render={<Link href="/home" />} variant="outline" size="default" nativeButton={false}>
+                View Dashboard
               </Button>
             )}
           </div>

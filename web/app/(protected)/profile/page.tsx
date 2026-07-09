@@ -147,8 +147,8 @@ export default async function Page() {
               </div>
 
               {user.plan === "free" ? (
-                <Button asChild className="w-full">
-                  <Link href="/api/billing/checkout">Upgrade to Plus</Link>
+                <Button render={<Link href="/api/billing/checkout" />} className="w-full" nativeButton={false}>
+                  Upgrade to Plus
                 </Button>
               ) : null}
             </CardContent>
@@ -160,11 +160,11 @@ export default async function Page() {
               <CardDescription>Common account actions in one place.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button asChild variant="outline" className="w-full justify-start">
-                <Link href="/upload">Upload a video</Link>
+              <Button render={<Link href="/upload" />} variant="outline" className="w-full justify-start" nativeButton={false}>
+                Upload a video
               </Button>
-              <Button asChild variant="outline" className="w-full justify-start">
-                <Link href="/home">Back to videos</Link>
+              <Button render={<Link href="/home" />} variant="outline" className="w-full justify-start" nativeButton={false}>
+                Back to videos
               </Button>
             </CardContent>
           </Card>

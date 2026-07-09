@@ -8,14 +8,14 @@ datasource db {
 }
 
 model Video {
-  id          String @id
+  id          String  @id
   title       String
   description String
-  s3Key       String @unique
-  views       Int    @default(0)
-  likes       Int    @default(0)
-  status      String @default("pending")
-  progress    Int    @default(0)
+  s3Key       String?
+  views       Int     @default(0)
+  likes       Int     @default(0)
+  status      String  @default("pending")
+  progress    Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

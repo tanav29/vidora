@@ -82,7 +82,7 @@ export default function Page() {
           description,
           id,
           extension,
-          s3Key: file.key,
+          s3Key: file?.key,
         }),
       });
 
@@ -142,8 +142,8 @@ export default function Page() {
                 ) : null} */}
               </div>
               {!quotaQuery.isLoading && quota?.plan === "free" ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/api/billing/checkout">Upgrade to Plus</Link>
+                <Button render={<Link href="/api/billing/checkout" />} size="sm" variant="outline" nativeButton={false}>
+                  Upgrade to Plus
                 </Button>
               ) : null}
             </div>
@@ -233,8 +233,8 @@ export default function Page() {
                     This cycle resets on {resetLabel}.
                   </p>
                 ) : null}
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/api/billing/checkout">Go Plus</Link>
+                <Button render={<Link href="/api/billing/checkout" />} size="sm" variant="outline" nativeButton={false}>
+                  Go Plus
                 </Button>
               </div>
             ) : (

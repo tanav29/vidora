@@ -17,14 +17,19 @@ export default function Page() {
           </p>
 
           <div className="mt-6">
-            <Button asChild variant="outline" className="w-full text-xs h-9">
-              <Link
-                href="https://github.com/thetanav/vidora/issues/new"
-                target="_blank"
-                className="flex items-center justify-center gap-2">
-                <GitBranch className="h-3.5 w-3.5" />
-                Open GitHub Issue
-              </Link>
+            <Button
+              render={
+                <Link
+                  href="https://github.com/thetanav/vidora/issues/new"
+                  target="_blank"
+                  className="flex items-center justify-center gap-2"
+                />
+              }
+              variant="outline"
+              className="w-full text-xs h-9"
+              nativeButton={false}>
+              <GitBranch className="h-3.5 w-3.5" />
+              Open GitHub Issue
             </Button>
           </div>
         </div>

@@ -137,14 +137,16 @@ export const VideoJsPlayer = ({ id }: { id: string }) => {
           className="absolute right-3 top-3 z-20"
           onClick={(event) => event.stopPropagation()}>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/65 px-3 text-xs font-medium text-white shadow-lg ring-1 ring-white/15 backdrop-blur transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                aria-label="Select video quality">
-                <span>{selectedQualityLabel}</span>
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/65 px-3 text-xs font-medium text-white shadow-lg ring-1 ring-white/15 backdrop-blur transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  aria-label="Select video quality"
+                />
+              }>
+              <span>{selectedQualityLabel}</span>
+              <ChevronDown className="h-3.5 w-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-28">
               <DropdownMenuRadioGroup

@@ -25,8 +25,8 @@ export default async function Page() {
       title="Videos"
       description={videos.length > 0 ? `${videos.length} total` : undefined}
       right={
-        <Button asChild size="sm">
-          <Link href="/upload">Upload</Link>
+        <Button render={<Link href="/upload" />} size="sm" nativeButton={false}>
+          Upload
         </Button>
       }
     >
@@ -39,8 +39,8 @@ export default async function Page() {
             <h3 className="font-semibold text-xs tracking-tight text-foreground">No videos yet</h3>
             <p className="text-xs text-muted-foreground">Upload your first video to get started.</p>
           </div>
-          <Button asChild variant="outline" size="sm" className="h-9">
-            <Link href="/upload">Upload video</Link>
+          <Button render={<Link href="/upload" />} variant="outline" size="sm" className="h-9" nativeButton={false}>
+            Upload video
           </Button>
         </div>
       ) : (
