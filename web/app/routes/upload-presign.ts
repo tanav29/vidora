@@ -1,6 +1,6 @@
+import { Hono } from "hono";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import S3 from "@/lib/s3";
@@ -15,18 +15,17 @@ const CONTENT_TYPES: Record<z.infer<typeof extensionSchema>, string> = {
   webm: "video/webm",
 };
 
-async function buildPresignResponse(id: string, extension: string | null) {
+async function buildPresignResponse(c: any, id: string, extension: string | null) {
   const parsedExtension = extensionSchema.safeParse(
     typeof extension === "string" ? extension.toLowerCase() : extension,
   );
 
   if (!parsedExtension.success) {
-    return NextResponse.json(
+    return c.json(
       {
-        error:
-          "Missing or invalid extension. Use one of mp4, mov, avi, mkv, or webm.",
+        error: "Missing or invalid extension. Use one of mp4, mov, avi, mkv, or webm.",
       },
-      { status: 400 },
+      400,
     );
   }
 
@@ -42,38 +41,31 @@ async function buildPresignResponse(id: string, extension: string | null) {
     { expiresIn: 5 * 3600 },
   );
 
-  return NextResponse.json({
-    putUrl,
-    key,
-    contentType,
-  });
+  return c.json({ putUrl, key, contentType });
 }
 
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
-  const url = new URL(request.url);
-  return buildPresignResponse(id, url.searchParams.get("extension"));
-}
+const uploadPresign = new Hono();
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
+uploadPresign.get("/:id", async (c) => {
+  const id = c.req.param("id");
+  const extension = c.req.query("extension") ?? null;
+  return buildPresignResponse(c, id, extension);
+});
+
+uploadPresign.post("/:id", async (c) => {
+  const id = c.req.param("id");
 
   let extension: string | null = null;
-
   try {
-    const body = (await request.json()) as { extension?: unknown };
+    const body = await c.req.json<{ extension?: unknown }>();
     if (typeof body.extension === "string") {
       extension = body.extension;
     }
   } catch {
-    // Ignore malformed bodies and fall back to validation below.
+    // Ignore malformed bodies
   }
 
-  return buildPresignResponse(id, extension);
-}
+  return buildPresignResponse(c, id, extension);
+});
+
+export default uploadPresign;
