@@ -18,7 +18,7 @@ type UploadInput = z.infer<typeof uploadSchema>;
 
 class UploadQuotaError extends Error {
   quota: {
-    plan: "free" | "premium";
+    plan: "free" | "plus";
     limit: number;
     used: number;
     remaining: number;
@@ -72,7 +72,9 @@ export async function POST(req: Request) {
 
       const monthStart = getCurrentMonthStart();
       const effectiveWindowStart =
-        user.uploadWindowStart < monthStart ? monthStart : user.uploadWindowStart;
+        user.uploadWindowStart < monthStart
+          ? monthStart
+          : user.uploadWindowStart;
       const effectiveUsed =
         user.uploadWindowStart < monthStart ? 0 : user.monthlyUploadCount;
       const quota = getUploadQuota({

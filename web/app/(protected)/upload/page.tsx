@@ -2,7 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, Crown, Loader2, Upload, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Crown,
+  Loader2,
+  Upload,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
@@ -23,7 +30,7 @@ interface UploadedFile {
 }
 
 interface QuotaResponse {
-  plan: "free" | "premium";
+  plan: "free" | "plus";
   limit: number;
   used: number;
   remaining: number;
@@ -109,8 +116,8 @@ export default function Page() {
                   <Crown className="h-4 w-4" />
                   {quotaQuery.isLoading
                     ? "Loading plan details"
-                    : quota?.plan === "premium"
-                      ? "Premium plan"
+                    : quota?.plan === "plus"
+                      ? "PLus plan"
                       : "Free plan"}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -123,7 +130,7 @@ export default function Page() {
               </div>
               {!quotaQuery.isLoading && quota?.plan === "free" ? (
                 <Button asChild size="sm" variant="outline">
-                  <Link href="/api/billing/checkout">Upgrade to Premium</Link>
+                  <Link href="/api/billing/checkout">Upgrade to Plus</Link>
                 </Button>
               ) : null}
             </div>
@@ -133,8 +140,8 @@ export default function Page() {
                 <div className="space-y-1">
                   <p className="font-medium">Monthly upload limit reached</p>
                   <p>
-                    Free accounts can upload 3 videos per month. Premium accounts can upload 10.
-                    Upgrade to continue this month.
+                    Free accounts can upload 3 videos per month. Plus accounts
+                    can upload 10. Upgrade to continue this month.
                   </p>
                 </div>
               </div>
@@ -142,7 +149,9 @@ export default function Page() {
           </div>
 
           <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight">Video details</h2>
+            <h2 className="text-base font-semibold tracking-tight">
+              Video details
+            </h2>
             <p className="text-sm text-muted-foreground">
               Fill in the information about your video.
             </p>
@@ -189,11 +198,11 @@ export default function Page() {
                   Uploads are paused until you upgrade
                 </p>
                 <p className="mb-4 text-xs text-muted-foreground">
-                  Your free monthly quota is exhausted. Premium raises the cap to 10 uploads per
-                  month.
+                  Your free monthly quota is exhausted. Plus raises the cap to
+                  10 uploads per month.
                 </p>
                 <Button asChild size="sm" variant="outline">
-                  <Link href="/api/billing/checkout">Go Premium</Link>
+                  <Link href="/api/billing/checkout">Go Plus</Link>
                 </Button>
               </div>
             ) : file ? (
@@ -203,7 +212,9 @@ export default function Page() {
                     <CheckCircle2 className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-foreground">{file.name}</p>
+                    <p className="truncate text-xs font-semibold text-foreground">
+                      {file.name}
+                    </p>
                     <p className="font-mono text-[10px] text-muted-foreground">
                       {(file.size / (1024 * 1024)).toFixed(2)} mb
                     </p>
@@ -212,8 +223,7 @@ export default function Page() {
                     variant="ghost"
                     size="icon"
                     onClick={removeFile}
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  >
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -233,7 +243,10 @@ export default function Page() {
                     onClientUploadComplete={async (res) => {
                       if (res[0]) {
                         setFile(res[0]);
-                        const ext = res[0].name?.split(".").pop()?.toLowerCase();
+                        const ext = res[0].name
+                          ?.split(".")
+                          .pop()
+                          ?.toLowerCase();
                         if (ext) setExtension(ext);
                       }
                     }}
@@ -249,12 +262,15 @@ export default function Page() {
           <div className="pt-4">
             <Button
               disabled={
-                !file || !title.trim() || isPending || isSuccess || isQuotaLocked
+                !file ||
+                !title.trim() ||
+                isPending ||
+                isSuccess ||
+                isQuotaLocked
               }
               size="default"
               className="h-10 w-full gap-2"
-              onClick={() => uploadVideo()}
-            >
+              onClick={() => uploadVideo()}>
               {isSuccess ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />

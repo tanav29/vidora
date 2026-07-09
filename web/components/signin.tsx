@@ -19,7 +19,7 @@ export default function AuthButton({
   session: any;
   collapsed?: boolean;
 }) {
-  const plan = session?.user?.plan === "premium" ? "Premium" : "Free";
+  const plan = session?.user?.plan === "plus" ? "Plus" : "Free";
 
   if (session) {
     return (
@@ -52,7 +52,7 @@ export default function AuthButton({
           <DropdownMenuGroup>
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/api/billing/checkout">Upgrade to Premium</Link>
+              <Link href="/api/billing/checkout">Upgrade to Plus</Link>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"

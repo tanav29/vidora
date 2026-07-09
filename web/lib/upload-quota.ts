@@ -1,14 +1,16 @@
 export const FREE_MONTHLY_UPLOAD_LIMIT = 3;
 export const PREMIUM_MONTHLY_UPLOAD_LIMIT = 10;
 
-export type UploadPlan = "free" | "premium";
+export type UploadPlan = "free" | "plus";
 
-export function normalizeUploadPlan(plan: string | null | undefined): UploadPlan {
-  return plan === "premium" ? "premium" : "free";
+export function normalizeUploadPlan(
+  plan: string | null | undefined,
+): UploadPlan {
+  return plan === "plus" ? "plus" : "free";
 }
 
 export function getUploadLimit(plan: string | null | undefined) {
-  return normalizeUploadPlan(plan) === "premium"
+  return normalizeUploadPlan(plan) === "plus"
     ? PREMIUM_MONTHLY_UPLOAD_LIMIT
     : FREE_MONTHLY_UPLOAD_LIMIT;
 }

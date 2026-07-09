@@ -1,3 +1,2 @@
 [ ] user have option to select res for video to transcoded in
 [ ] person can downlaod the transcoded folder form r2
-[x] all the user must be on free plan with 3 video upload per month (/upload api call not uploadthing) they can buy a premium plan and can increase there limit to 10 per month with dodo payments
