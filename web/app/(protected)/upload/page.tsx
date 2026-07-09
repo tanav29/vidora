@@ -32,9 +32,8 @@ interface UploadedFile {
 interface QuotaResponse {
   plan: "free" | "plus";
   limit: number;
-  used: number;
-  remaining: number;
-  resetAt: string;
+  uploads: number;
+  cycleStart: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -52,7 +51,7 @@ export default function Page() {
   const quotaQuery = useQuery<QuotaResponse>({
     queryKey: ["upload-quota"],
     queryFn: async () => {
-      const res = await fetch("/api/me/quota", {
+      const res = await fetch("/api/quota", {
         credentials: "include",
       });
 
@@ -64,6 +63,20 @@ export default function Page() {
     },
     staleTime: 30_000,
   });
+
+  const quota = quotaQuery.data;
+  const isQuotaLocked = quota ? quota.uploads >= quota.limit : false;
+  const canUpload = Boolean(quota) && !isQuotaLocked;
+  const resetAt = quota
+    ? new Date(new Date(quota.cycleStart).getTime() + 30 * 24 * 60 * 60 * 1000)
+    : null;
+  const resetLabel = resetAt
+    ? resetAt.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   const {
     mutate: uploadVideo,
@@ -89,10 +102,10 @@ export default function Page() {
         return null;
       }
 
-      toast.success("Uploaded successfully");
+      toast.success("Video saved and queued for processing");
       setTimeout(() => {
         router.push("/home");
-      }, 2000);
+      }, 1500);
       return { success: true };
     },
   });
@@ -101,9 +114,6 @@ export default function Page() {
     setFile(null);
     setExtension(null);
   };
-
-  const quota = quotaQuery.data;
-  const isQuotaLocked = quota?.remaining === 0;
 
   return (
     <main>
@@ -117,16 +127,23 @@ export default function Page() {
                   {quotaQuery.isLoading
                     ? "Loading plan details"
                     : quota?.plan === "plus"
-                      ? "PLus plan"
+                      ? "Plus plan"
                       : "Free plan"}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {quotaQuery.isLoading
                     ? "Checking your current monthly upload allowance."
                     : quota
-                      ? `You have used ${quota.used} of ${quota.limit} uploads this month.`
+                      ? `You have used ${quota.uploads} of ${quota.limit} uploads this month.`
                       : "Your monthly quota could not be loaded."}
                 </p>
+                {quota ? (
+                  <p className="text-xs text-muted-foreground">
+                    {resetLabel
+                      ? `Current cycle started ${new Date(quota.cycleStart).toLocaleDateString()} and resets on ${resetLabel}.`
+                      : `Current cycle started ${new Date(quota.cycleStart).toLocaleDateString()}.`}
+                  </p>
+                ) : null}
               </div>
               {!quotaQuery.isLoading && quota?.plan === "free" ? (
                 <Button asChild size="sm" variant="outline">
@@ -189,7 +206,25 @@ export default function Page() {
             <Label className="text-xs font-semibold tracking-tight text-foreground">
               Video File <span className="text-destructive">*</span>
             </Label>
-            {isQuotaLocked ? (
+            {quotaQuery.isLoading ? (
+              <div className="rounded-lg border border-dashed border-border bg-muted/15 p-8 text-center">
+                <p className="text-xs font-semibold text-foreground">
+                  Loading upload allowance...
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  File upload will unlock once your quota is known.
+                </p>
+              </div>
+            ) : quotaQuery.isError ? (
+              <div className="rounded-lg border border-dashed border-border bg-muted/15 p-8 text-center">
+                <p className="text-xs font-semibold text-foreground">
+                  Unable to load upload allowance
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Refresh the page to try again. Uploads stay locked until quota data is available.
+                </p>
+              </div>
+            ) : isQuotaLocked ? (
               <div className="rounded-lg border border-dashed border-border bg-muted/15 p-8 text-center">
                 <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-foreground/80">
                   <Crown className="h-4 w-4" />
@@ -201,6 +236,11 @@ export default function Page() {
                   Your free monthly quota is exhausted. Plus raises the cap to
                   10 uploads per month.
                 </p>
+                {resetLabel ? (
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    This cycle resets on {resetLabel}.
+                  </p>
+                ) : null}
                 <Button asChild size="sm" variant="outline">
                   <Link href="/api/billing/checkout">Go Plus</Link>
                 </Button>
@@ -223,7 +263,8 @@ export default function Page() {
                     variant="ghost"
                     size="icon"
                     onClick={removeFile}
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -243,15 +284,15 @@ export default function Page() {
                     onClientUploadComplete={async (res) => {
                       if (res[0]) {
                         setFile(res[0]);
-                        const ext = res[0].name
-                          ?.split(".")
-                          .pop()
-                          ?.toLowerCase();
+                        const ext = res[0].name?.split(".").pop()?.toLowerCase();
                         if (ext) setExtension(ext);
+                        if (!title.trim()) {
+                          setTitle(res[0].name.replace(/\.[^/.]+$/, ""));
+                        }
                       }
                     }}
                     onUploadError={(error: Error) => {
-                      alert(`ERROR! ${error.message}`);
+                      toast.error(error.message || "Upload failed");
                     }}
                   />
                 </div>
@@ -266,11 +307,13 @@ export default function Page() {
                 !title.trim() ||
                 isPending ||
                 isSuccess ||
-                isQuotaLocked
+                !canUpload ||
+                quotaQuery.isLoading
               }
               size="default"
               className="h-10 w-full gap-2"
-              onClick={() => uploadVideo()}>
+              onClick={() => uploadVideo()}
+            >
               {isSuccess ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />

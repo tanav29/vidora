@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { signIn, signOut } from "@/lib/auth-client";
 import Link from "next/link";
 import { Button } from "./ui/button";
@@ -9,8 +10,16 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+
+interface QuotaResponse {
+  plan: "free" | "plus";
+  limit: number;
+  uploads: number;
+  cycleStart: string;
+}
 
 export default function AuthButton({
   session,
@@ -20,6 +29,34 @@ export default function AuthButton({
   collapsed?: boolean;
 }) {
   const plan = session?.user?.plan === "plus" ? "Plus" : "Free";
+  const quotaQuery = useQuery<QuotaResponse>({
+    queryKey: ["account-quota"],
+    queryFn: async () => {
+      const res = await fetch("/api/quota", {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to load quota");
+      }
+
+      return res.json();
+    },
+    enabled: Boolean(session?.user?.id),
+    staleTime: 30_000,
+  });
+
+  const quota = quotaQuery.data;
+  const resetAt = quota
+    ? new Date(new Date(quota.cycleStart).getTime() + 30 * 24 * 60 * 60 * 1000)
+    : null;
+  const resetLabel = resetAt
+    ? resetAt.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   if (session) {
     return (
@@ -48,12 +85,33 @@ export default function AuthButton({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end">
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            <div className="space-y-1">
+              <div className="text-sm font-medium text-foreground">
+                {session.user?.name}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {quotaQuery.isLoading
+                  ? `${plan} plan · loading usage`
+                  : quota
+                    ? `${quota.plan === "plus" ? "Plus" : "Free"} plan · ${quota.uploads}/${quota.limit} uploads used`
+                    : `${plan} plan`}
+              </div>
+              {resetLabel ? (
+                <div className="text-xs text-muted-foreground">
+                  Resets on {resetLabel}
+                </div>
+              ) : null}
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/api/billing/checkout">Upgrade to Plus</Link>
-            </DropdownMenuItem>
+            {quota?.plan === "free" ? (
+              <DropdownMenuItem asChild>
+                <Link href="/api/billing/checkout">Upgrade to Plus</Link>
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem
               className="text-destructive"
               onClick={() =>

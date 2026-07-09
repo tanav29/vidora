@@ -57,9 +57,8 @@ export default function SidebarShell({ session }: SidebarShellProps) {
       <div
         className={cn(
           "relative flex flex-col border-r border-border bg-background transition-opacity duration-150 ease-in-out",
-          collapsed ? "w-16" : "w-60",
-        )}
-      >
+          collapsed ? "w-12" : "w-60",
+        )}>
         <div className={cn("p-4", collapsed && "flex justify-center")}>
           <Link href="/home" className="flex items-center gap-3 group" prefetch>
             <span className="font-semibold text-foreground text-base tracking-tight whitespace-nowrap">
@@ -85,11 +84,10 @@ export default function SidebarShell({ session }: SidebarShellProps) {
                   active
                     ? "text-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground",
-                )}
-              >
+                )}>
                 <Icon
                   className={cn(
-                    "w-4 h-4 shrink-0 transition-colors duration-150",
+                    "w-4 h-4 shrink-0 transition-colors",
                     active
                       ? "text-foreground"
                       : "text-muted-foreground/70 group-hover:text-foreground",
@@ -105,16 +103,14 @@ export default function SidebarShell({ session }: SidebarShellProps) {
           className={cn(
             "p-2.5 border-t border-border",
             collapsed && "px-2 flex justify-center",
-          )}
-        >
+          )}>
           <AuthButton session={session} collapsed={collapsed} />
         </div>
 
         <button
           onClick={() => setCollapsed((prev) => !prev)}
           className="absolute -right-3 top-4 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground cursor-pointer"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
           {collapsed ? (
             <PanelLeftOpen className="h-3 w-3" />
           ) : (
