@@ -62,11 +62,11 @@ export default function AuthButton({
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="w-full cursor-pointer flex items-center justify-between overflow-clip outline-none select-none">
+          <button className="flex w-full cursor-pointer items-center justify-between overflow-clip select-none outline-none">
             {collapsed ? (
               <img
                 src={session.user?.image ?? ""}
-                className="w-5 h-5 rounded-full mx-auto"
+                className="mx-auto h-5 w-5 rounded-full"
                 alt="User avatar"
               />
             ) : (
@@ -77,7 +77,7 @@ export default function AuthButton({
                 </div>
                 <img
                   src={session.user?.image ?? ""}
-                  className="w-7 h-7 rounded-full"
+                  className="h-7 w-7 rounded-full"
                   alt="User avatar"
                 />
               </>
@@ -92,9 +92,9 @@ export default function AuthButton({
               </div>
               <div className="text-xs text-muted-foreground">
                 {quotaQuery.isLoading
-                  ? `${plan} plan · loading usage`
+                  ? `${plan} plan - loading usage`
                   : quota
-                    ? `${quota.plan === "plus" ? "Plus" : "Free"} plan · ${quota.uploads}/${quota.limit} uploads used`
+                    ? `${quota.plan === "plus" ? "Plus" : "Free"} plan - ${quota.uploads}/${quota.limit} uploads used`
                     : `${plan} plan`}
               </div>
               {resetLabel ? (
@@ -106,7 +106,9 @@ export default function AuthButton({
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem>Profile</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/profile">Profile</Link>
+            </DropdownMenuItem>
             {quota?.plan === "free" ? (
               <DropdownMenuItem asChild>
                 <Link href="/api/billing/checkout">Upgrade to Plus</Link>
