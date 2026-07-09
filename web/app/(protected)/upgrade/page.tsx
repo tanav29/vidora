@@ -84,14 +84,12 @@ export default async function Page() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Button asChild size="lg" className="gap-2">
-                  <Link href="/api/billing/checkout">
-                    <Crown className="h-4 w-4" />
-                    {isPlus ? "Manage plan" : "Upgrade to Plus"}
-                  </Link>
+                <Button render={<Link href="/api/billing/checkout" />} size="lg" className="gap-2" nativeButton={false}>
+                  <Crown className="h-4 w-4" />
+                  {isPlus ? "Manage plan" : "Upgrade to Plus"}
                 </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/upload">Back to upload</Link>
+                <Button render={<Link href="/upload" />} size="lg" variant="outline" nativeButton={false}>
+                  Back to upload
                 </Button>
               </div>
             </div>
@@ -235,12 +233,10 @@ export default async function Page() {
               Upgrade now or keep using Free until your current cycle ends.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/api/billing/checkout" className="inline-flex items-center gap-2">
+          <Button render={<Link href="/api/billing/checkout" className="inline-flex items-center gap-2" />} nativeButton={false}>
               <Crown className="h-4 w-4" />
               Upgrade
               <ArrowRight className="h-4 w-4" />
-            </Link>
           </Button>
         </div>
       </div>

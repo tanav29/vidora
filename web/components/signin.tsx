@@ -61,8 +61,10 @@ export default function AuthButton({
   if (session) {
     return (
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex w-full cursor-pointer items-center justify-between overflow-clip select-none outline-none">
+        <DropdownMenuTrigger
+          render={
+            <button className="flex w-full cursor-pointer items-center justify-between overflow-clip select-none outline-none" />
+          }>
             {collapsed ? (
               <img
                 src={session.user?.image ?? ""}
@@ -82,36 +84,37 @@ export default function AuthButton({
                 />
               </>
             )}
-          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end">
-          <DropdownMenuLabel>
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-foreground">
-                {session.user?.name}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {quotaQuery.isLoading
-                  ? `${plan} plan - loading usage`
-                  : quota
-                    ? `${quota.plan === "plus" ? "Plus" : "Free"} plan - ${quota.uploads}/${quota.limit} uploads used`
-                    : `${plan} plan`}
-              </div>
-              {resetLabel ? (
-                <div className="text-xs text-muted-foreground">
-                  Resets on {resetLabel}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-foreground">
+                  {session.user?.name}
                 </div>
-              ) : null}
-            </div>
-          </DropdownMenuLabel>
+                <div className="text-xs text-muted-foreground">
+                  {quotaQuery.isLoading
+                    ? `${plan} plan - loading usage`
+                    : quota
+                      ? `${quota.plan === "plus" ? "Plus" : "Free"} plan - ${quota.uploads}/${quota.limit} uploads used`
+                      : `${plan} plan`}
+                </div>
+                {resetLabel ? (
+                  <div className="text-xs text-muted-foreground">
+                    Resets on {resetLabel}
+                  </div>
+                ) : null}
+              </div>
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-              <Link href="/profile">Profile</Link>
+            <DropdownMenuItem render={<Link href="/profile" />} nativeButton={false}>
+              Profile
             </DropdownMenuItem>
             {quota?.plan === "free" ? (
-              <DropdownMenuItem asChild>
-                <Link href="/api/billing/checkout">Upgrade to Plus</Link>
+              <DropdownMenuItem render={<Link href="/api/billing/checkout" />} nativeButton={false}>
+                Upgrade to Plus
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem

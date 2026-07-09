@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -8,7 +8,6 @@ import {
   Crown,
   Loader2,
   Upload,
-  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,18 +15,11 @@ import { nanoid } from "nanoid";
 import { toast } from "sonner";
 
 import PageShell from "@/components/page-shell";
-import { UploadButton } from "@/components/uploadthing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-interface UploadedFile {
-  name: string;
-  size: number;
-  url: string;
-  key: string;
-}
+import { UploadView, type UploadedFile } from "./upload-view";
 
 interface QuotaResponse {
   plan: "free" | "plus";
@@ -40,11 +32,11 @@ export default function Page() {
   const router = useRouter();
   const [file, setFile] = useState<UploadedFile | null>(null);
   const [title, setTitle] = useState("");
-  const [extension, setExtension] = useState<string | null>(null);
+  const [extension, setExtension] = useState<UploadedFile["extension"] | null>(
+    null,
+  );
   const [description, setDescription] = useState("");
   const [id] = useState(() => nanoid(16));
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const quotaQuery = useQuery<QuotaResponse>({
     queryKey: ["upload-quota"],
@@ -90,6 +82,7 @@ export default function Page() {
           description,
           id,
           extension,
+          s3Key: file?.key,
         }),
       });
 
@@ -149,8 +142,8 @@ export default function Page() {
                 ) : null} */}
               </div>
               {!quotaQuery.isLoading && quota?.plan === "free" ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/api/billing/checkout">Upgrade to Plus</Link>
+                <Button render={<Link href="/api/billing/checkout" />} size="sm" variant="outline" nativeButton={false}>
+                  Upgrade to Plus
                 </Button>
               ) : null}
             </div>
@@ -168,16 +161,11 @@ export default function Page() {
             ) : null}
           </div>
 
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight">
-              Video details
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Fill in the information about your video.
-            </p>
-          </div>
+          <h2 className="text-base font-semibold tracking-tight">
+            Video details
+          </h2>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
             </Label>
@@ -194,7 +182,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -205,7 +193,7 @@ export default function Page() {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label className="text-xs font-semibold tracking-tight text-foreground">
               Video File <span className="text-destructive">*</span>
             </Label>
@@ -245,64 +233,19 @@ export default function Page() {
                     This cycle resets on {resetLabel}.
                   </p>
                 ) : null}
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/api/billing/checkout">Go Plus</Link>
+                <Button render={<Link href="/api/billing/checkout" />} size="sm" variant="outline" nativeButton={false}>
+                  Go Plus
                 </Button>
               </div>
-            ) : file ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/25 p-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted/40 text-emerald-500">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-foreground">
-                      {file.name}
-                    </p>
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      {(file.size / (1024 * 1024)).toFixed(2)} mb
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={removeFile}
-                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
             ) : (
-              <div className="cursor-pointer rounded-lg border border-dashed border-border p-8 text-center transition-all duration-150 hover:border-foreground/20 hover:bg-muted/15">
-                <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-muted/40 text-foreground/80">
-                  <Upload className="h-4 w-4" />
-                </div>
-                <p className="mb-3 text-xs font-semibold text-foreground">
-                  Click to upload or drag and drop
-                </p>
-                <div className="flex justify-center">
-                  <UploadButton
-                    endpoint="videoUploader"
-                    headers={{ "x-video-id": id }}
-                    onClientUploadComplete={async (res) => {
-                      if (res[0]) {
-                        setFile(res[0]);
-                        const ext = res[0].name
-                          ?.split(".")
-                          .pop()
-                          ?.toLowerCase();
-                        if (ext) setExtension(ext);
-                        if (!title.trim()) {
-                          setTitle(res[0].name.replace(/\.[^/.]+$/, ""));
-                        }
-                      }
-                    }}
-                    onUploadError={(error: Error) => {
-                      toast.error(error.message || "Upload failed");
-                    }}
-                  />
-                </div>
-              </div>
+              <UploadView
+                id={id}
+                file={file}
+                title={title}
+                onFileChange={setFile}
+                onExtensionChange={setExtension}
+                onTitleChange={setTitle}
+              />
             )}
           </div>
 
@@ -339,10 +282,6 @@ export default function Page() {
           </div>
         </div>
       </PageShell>
-
-      {/* Hidden elements for video processing */}
-      <video ref={videoRef} className="hidden" />
-      <canvas ref={canvasRef} className="hidden" />
     </main>
   );
 }

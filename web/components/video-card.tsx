@@ -168,15 +168,16 @@ export default function VideoCard({ video }: VideoCardProps) {
         </div>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={stopEvent}
-            >
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={stopEvent}
+              />
+            }>
               <MoreVertical className="w-4 h-4 text-muted-foreground" />
-            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem

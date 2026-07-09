@@ -1,5 +1,6 @@
-import { headers } from "next/headers";
-import { createUploadthing, type FileRouter, UTFiles } from "uploadthing/next";
+import { createUploadthing, type FileRouter, UTFiles } from "uploadthing/server";
+import { auth } from "@/lib/auth";
+
 const f = createUploadthing();
 
 export const ourFileRouter = {
@@ -14,10 +15,17 @@ export const ourFileRouter = {
       awaitServerData: true,
     },
   )
-    .middleware(async ({ files }) => {
-      const h = await headers();
-      const videoId = h.get("x-video-id");
+    .middleware(async ({ files, req }) => {
+      const h = new Headers();
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (value) h.set(key, Array.isArray(value) ? value.join(", ") : value);
+      }
 
+      const session = await auth.api.getSession({ headers: h });
+
+      if (!session?.user?.id) throw new Error("Unauthorized");
+
+      const videoId = h.get("x-video-id");
       if (!videoId) throw new Error("Missing video id");
 
       const ext = files[0].name.split(".").pop();
@@ -43,10 +51,17 @@ export const ourFileRouter = {
       awaitServerData: true,
     },
   )
-    .middleware(async ({ files }) => {
-      const h = await headers();
-      const videoId = h.get("x-video-id");
+    .middleware(async ({ files, req }) => {
+      const h = new Headers();
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (value) h.set(key, Array.isArray(value) ? value.join(", ") : value);
+      }
 
+      const session = await auth.api.getSession({ headers: h });
+
+      if (!session?.user?.id) throw new Error("Unauthorized");
+
+      const videoId = h.get("x-video-id");
       if (!videoId) throw new Error("Missing video id");
 
       const overrides = files.map((f) => ({

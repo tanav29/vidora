@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { getThumbnailUrl, getThumbnailVttUrl } from "@/lib/video-urls";
+import {
+  getPlaybackUrl,
+  getThumbnailUrl,
+  getThumbnailVttUrl,
+} from "@/lib/video-urls";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,9 +45,8 @@ function getQualityUrl(src: string, quality: Quality) {
 export const VideoJsPlayer = ({ id }: { id: string }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pendingPlaybackState = useRef<PlaybackState | null>(null);
-  const [src, setSrc] = useState("");
+  const src = getPlaybackUrl(id);
   const [selectedQuality, setSelectedQuality] = useState<Quality>("auto");
-  const [isLoading, setIsLoading] = useState(true);
   const [previewTime, setPreviewTime] = useState(0);
 
   const playbackSrc = useMemo(
@@ -56,21 +59,6 @@ export const VideoJsPlayer = ({ id }: { id: string }) => {
   const selectedQualityLabel =
     qualityOptions.find((item) => item.value === selectedQuality)?.label ??
     "Auto";
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch(`/api/sw/${id}`);
-        const data = await res.json();
-        setSrc(data.url);
-      } catch (error) {
-        console.error("Failed to fetch video URL:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [id]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -123,71 +111,59 @@ export const VideoJsPlayer = ({ id }: { id: string }) => {
     setSelectedQuality(quality as Quality);
   };
 
-  if (!isLoading) {
-    return (
-      <div className="relative h-full w-full overflow-hidden rounded-xl bg-black">
-        <Player.Provider>
-          <MinimalVideoSkin
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-black">
+      <Player.Provider>
+        <MinimalVideoSkin
+          className="h-full w-full"
+          poster={getThumbnailUrl(id)}>
+          <Video
+            ref={videoRef}
+            autoPlay={true}
             className="h-full w-full"
-            poster={getThumbnailUrl(id)}
-          >
-            <Video
-              ref={videoRef}
-              autoPlay={true}
-              className="h-full w-full"
-              src={playbackSrc}
-              playsInline
-            >
-              <track
-                kind="metadata"
-                label="thumbnails"
-                src={vttUrl}
-                default
-              />
-            </Video>
-            <Thumbnail
-              className="pointer-events-none absolute bottom-12 left-3 z-30 max-w-[180px] rounded-md border border-white/20 shadow-lg"
-              time={previewTime}
-            />
-          </MinimalVideoSkin>
-        </Player.Provider>
+            src={playbackSrc}
+            playsInline>
+            <track kind="metadata" label="thumbnails" src={vttUrl} default />
+          </Video>
+          <Thumbnail
+            className="pointer-events-none absolute bottom-12 left-3 z-30 max-w-[180px]"
+            time={previewTime}
+          />
+        </MinimalVideoSkin>
+      </Player.Provider>
 
-        {src && (
-          <div
-            className="absolute right-3 top-3 z-20"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+      {src ? (
+        <div
+          className="absolute right-3 top-3 z-20"
+          onClick={(event) => event.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
                 <button
                   type="button"
                   className="inline-flex h-8 items-center gap-1.5 rounded-full bg-black/65 px-3 text-xs font-medium text-white shadow-lg ring-1 ring-white/15 backdrop-blur transition hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   aria-label="Select video quality"
-                >
-                  <span>{selectedQualityLabel}</span>
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-28">
-                <DropdownMenuRadioGroup
-                  value={selectedQuality}
-                  onValueChange={handleQualityChange}
-                >
-                  {qualityOptions.map((option) => (
-                    <DropdownMenuRadioItem
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-      </div>
-    );
-  }
-  return null;
+                />
+              }>
+              <span>{selectedQualityLabel}</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-28">
+              <DropdownMenuRadioGroup
+                value={selectedQuality}
+                onValueChange={handleQualityChange}>
+                {qualityOptions.map((option) => (
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : null}
+    </div>
+  );
 };
