@@ -6,6 +6,7 @@ The web app is a Next.js dashboard and playback surface for Vidora.
 
 - Handles Google authentication with Better Auth
 - Accepts uploads and enqueues Redis jobs
+- Handles payments via Dodo Payments for increased upload limits
 - Shows user-scoped library and job state
 - Serves playback metadata and public watch pages
 
@@ -32,6 +33,7 @@ AUTH_GOOGLE_ID="..."
 AUTH_GOOGLE_SECRET="..."
 BETTER_AUTH_SECRET="..."
 BETTER_AUTH_URL="http://localhost:3000"
+DODO_PAYMENTS_API_KEY=""
 WORKER_SHARED_SECRET=""
 ```
 

@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import db from "@/lib/db";
 import { publishJob } from "@/lib/queue";
-import { getUploadQuota } from "@/lib/upload-quota";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
