@@ -1,10 +1,7 @@
 import { auth } from "@/lib/auth";
 import db from "@/lib/db";
-import { getCurrentMonthStart, getUploadQuota } from "@/lib/upload-quota";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-
-export const runtime = "nodejs";
 
 export async function GET() {
   const session = await auth.api.getSession({
@@ -24,20 +21,15 @@ export async function GET() {
   });
 
   if (!user) {
-    return new NextResponse("Not found", { status: 404 });
+    throw new Error("User not found");
   }
 
-  const monthStart = getCurrentMonthStart();
-  const quota = getUploadQuota({
-    plan: user.plan,
-    monthlyUploadCount: user.monthlyUploadCount,
-    uploadWindowStart:
-      user.uploadWindowStart < monthStart ? monthStart : user.uploadWindowStart,
-  });
+  const userLimits = user.plan == "plus" ? 10 : 3;
 
-  return NextResponse.json(quota, {
-    headers: {
-      "Cache-Control": "private, no-store",
-    },
+  return NextResponse.json({
+    cycleStart: user.uploadWindowStart,
+    uploads: user.monthlyUploadCount,
+    limit: userLimits,
+    plan: user.plan,
   });
 }

@@ -4,8 +4,6 @@ import { auth } from "@/lib/auth";
 import db from "@/lib/db";
 import { headers } from "next/headers";
 
-export const runtime = "nodejs";
-
 export async function GET(req: Request) {
   const session = await auth.api.getSession({
     headers: await headers(),

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import db from "@/lib/db";
 import { publishJob } from "@/lib/queue";
-import { getCurrentMonthStart, getUploadQuota } from "@/lib/upload-quota";
+import { getUploadQuota } from "@/lib/upload-quota";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -14,23 +14,6 @@ const uploadSchema = z.object({
   thumbnailUrl: z.string().url().optional().nullable(),
 });
 
-type UploadInput = z.infer<typeof uploadSchema>;
-
-class UploadQuotaError extends Error {
-  quota: {
-    plan: "free" | "plus";
-    limit: number;
-    used: number;
-    remaining: number;
-    resetAt: Date;
-  };
-
-  constructor(quota: UploadQuotaError["quota"]) {
-    super("Monthly upload limit reached");
-    this.quota = quota;
-  }
-}
-
 export async function POST(req: Request) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -39,18 +22,15 @@ export async function POST(req: Request) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  let body: UploadInput;
+  let body;
   try {
     const json = await req.json();
     body = uploadSchema.parse(json);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request", issues: error.issues },
-        { status: 400 },
-      );
-    }
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request", issues: error },
+      { status: 400 },
+    );
   }
 
   const { title, description, id, extension } = body;
@@ -70,30 +50,53 @@ export async function POST(req: Request) {
         throw new Error("User not found");
       }
 
-      const monthStart = getCurrentMonthStart();
-      const effectiveWindowStart =
-        user.uploadWindowStart < monthStart
-          ? monthStart
-          : user.uploadWindowStart;
-      const effectiveUsed =
-        user.uploadWindowStart < monthStart ? 0 : user.monthlyUploadCount;
-      const quota = getUploadQuota({
-        plan: user.plan,
-        monthlyUploadCount: effectiveUsed,
-        uploadWindowStart: effectiveWindowStart,
-      });
+      // check
+      const thityDaysLater = new Date();
+      thityDaysLater.setDate(thityDaysLater.getDate() + 30);
 
-      if (quota.remaining <= 0) {
-        throw new UploadQuotaError(quota);
+      const current = new Date();
+
+      const userLimits = user.plan == "plus" ? 10 : 3;
+
+      if (current >= thityDaysLater) {
+        // today is beyond the users cycle
+        // start the month cycle and upload count
+        await tx.user.update({
+          where: {
+            id: session.user.id,
+          },
+          data: {
+            uploadWindowStart: current,
+            monthlyUploadCount: 1,
+          },
+        });
+      } else {
+        // today is inside user cycle
+        if (user.monthlyUploadCount < userLimits) {
+          // do
+          // increase the monthly count
+          await tx.user.update({
+            where: {
+              id: session.user.id,
+            },
+            data: {
+              monthlyUploadCount: {
+                increment: 1,
+              },
+            },
+          });
+        } else {
+          return NextResponse.json(
+            {
+              error: "Monthly upload limit reached",
+              plan: user.plan,
+              limit: userLimits,
+              used: user.monthlyUploadCount,
+            },
+            { status: 429 },
+          );
+        }
       }
-
-      await tx.user.update({
-        where: { id: session.user.id },
-        data: {
-          monthlyUploadCount: effectiveUsed + 1,
-          uploadWindowStart: effectiveWindowStart,
-        },
-      });
 
       await tx.video.create({
         data: {
@@ -108,20 +111,6 @@ export async function POST(req: Request) {
       });
     });
   } catch (error) {
-    if (error instanceof UploadQuotaError) {
-      return NextResponse.json(
-        {
-          error: "Monthly upload limit reached",
-          plan: error.quota.plan,
-          limit: error.quota.limit,
-          used: error.quota.used,
-          remaining: error.quota.remaining,
-        },
-        { status: 429 },
-      );
-    }
-
-    console.error("Database error:", error);
     return NextResponse.json(
       { error: "Failed to create video record" },
       { status: 500 },
@@ -129,6 +118,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    // TODO: add configs
     await publishJob({ name: id, ext: extension });
   } catch (error) {
     console.error("Queue publish error:", error);
