@@ -1,7 +1,8 @@
 import { spawn, execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
+import "dotenv/config";
+import "./config.js";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -20,7 +21,6 @@ import {
   touchJob,
 } from "./queue.js";
 
-dotenv.config();
 
 export const r2 = new S3Client({
   region: "auto",
@@ -100,7 +100,7 @@ async function encodeResolution(
       "-start_number",
       "0",
       playlistPath,
-    ]);
+    ], { stdio: "ignore" });
 
     ffmpeg.on("error", (err) => reject(new Error(`ffmpeg exited with error: ${err}`)));
     ffmpeg.on("close", (code) => {
@@ -123,7 +123,7 @@ async function generateThumbnail(inputPath: string, outputPath: string) {
       "-frames:v",
       "1",
       outputPath,
-    ]);
+    ], { stdio: "ignore" });
 
     ffmpeg.on("error", (err) => reject(new Error(`ffmpeg thumbnail error: ${err}`)));
     ffmpeg.on("close", (code) => {
@@ -179,7 +179,7 @@ async function generateThumbnailSprites(
         "-frames:v",
         "1",
         spritePath,
-      ]);
+      ], { stdio: "ignore" });
 
       ffmpeg.on("error", (err) => reject(new Error(`ffmpeg sprite error: ${err}`)));
       ffmpeg.on("close", (code) => {

@@ -2,10 +2,8 @@
 
 import {
   createContext,
-  useContext,
   useState,
   useEffect,
-  type ReactNode,
 } from "react";
 import {
   PanelLeftClose,
@@ -59,7 +57,7 @@ export default function SidebarShell({ session }: SidebarShellProps) {
       <div
         className={cn(
           "relative flex flex-col border-r border-border bg-background transition-opacity duration-150 ease-in-out",
-          collapsed ? "w-12" : "w-60",
+          collapsed ? "w-14 shrink-0" : "w-44 shrink-0 sm:w-60",
         )}>
         <div className={cn("p-4", collapsed && "flex justify-center")}>
           <Link href="/home" className="flex items-center gap-3 group" prefetch>
@@ -79,12 +77,14 @@ export default function SidebarShell({ session }: SidebarShellProps) {
               <Link
                 key={item.path}
                 href={item.path}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
                 prefetch
                 className={cn(
-                  "flex items-center gap-2 text-sm group",
-                  collapsed ? "justify-center p-2" : "px-3 py-1.5",
+                  "flex items-center gap-3 rounded-lg text-sm group",
+                  collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
                   active
-                    ? "text-foreground font-medium"
+                    ? "bg-secondary text-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground",
                 )}>
                 <Icon

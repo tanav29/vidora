@@ -1,3 +1,4 @@
+import "./config.js";
 import { Redis } from "@upstash/redis";
 
 export const QUEUE = "video-queue";

@@ -142,15 +142,15 @@ export default function VideoCard({ video }: VideoCardProps) {
 
       <div className="flex items-start justify-between gap-2 px-1">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground text-xs tracking-tight leading-snug truncate group-hover:text-foreground/80 transition-colors">
+          <h3 className="font-semibold text-foreground text-sm tracking-tight leading-snug truncate group-hover:text-foreground/80 transition-colors">
             {video.title}
           </h3>
 
-          <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground font-mono">
+          <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
             {/* Status dot */}
             <span className="flex items-center gap-1.5">
               <span className={`inline-block w-1.5 h-1.5 rounded-full ${statusConfig[status].dotClass}`} />
-              <span className="text-[9px] uppercase tracking-wider">{statusConfig[status].label}</span>
+              <span className="text-xs">{statusConfig[status].label}</span>
             </span>
 
             <span className="text-border">|</span>
@@ -173,7 +173,8 @@ export default function VideoCard({ video }: VideoCardProps) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                className="text-muted-foreground"
+                aria-label={`Actions for ${video.title}`}
                 onClick={stopEvent}
               />
             }>

@@ -23,7 +23,7 @@ export default async function Page() {
   return (
     <PageShell
       title="Videos"
-      description={videos.length > 0 ? `${videos.length} total` : undefined}
+      description={videos.length > 0 ? `${videos.length} ${videos.length === 1 ? "video" : "videos"} in your library` : undefined}
       right={
         <Button render={<Link href="/upload" />} size="sm" nativeButton={false}>
           Upload
@@ -36,8 +36,8 @@ export default async function Page() {
             <Video className="h-4 w-4" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-semibold text-xs tracking-tight text-foreground">No videos yet</h3>
-            <p className="text-xs text-muted-foreground">Upload your first video to get started.</p>
+            <h3 className="font-semibold text-base tracking-tight text-foreground">No videos yet</h3>
+            <p className="text-sm text-muted-foreground">Upload your first video to get started.</p>
           </div>
           <Button render={<Link href="/upload" />} variant="outline" size="sm" className="h-9" nativeButton={false}>
             Upload video

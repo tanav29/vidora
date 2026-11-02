@@ -1,136 +1,61 @@
 # Vidora
 
-Full-stack video hosting platform: upload, async FFmpeg transcoding to adaptive HLS, and streaming playback — from one browser flow.
+Vidora is a video library with direct uploads, background FFmpeg transcoding, adaptive HLS playback, and shareable watch links. The Next.js app handles accounts and uploads; a separate worker processes videos from a Redis queue.
 
-[Video on X](https://x.com/tanavtwt/status/2007356766284329173?s=20)
+[See the demo](https://x.com/tanavtwt/status/2007356766284329173?s=20)
 
-## Highlights
+## What you need
 
-- Monorepo: Next.js web app + standalone transcoding worker
-- Queue-driven media pipeline (Upstash Redis + FFmpeg) that never blocks the request path
-- Multi-bitrate HLS (240p/480p/720p/1080p), per-video rendition selection
-- Direct-to-R2 presigned PUT uploads
-- Google OAuth, per-user library, quota plans (free 3/mo, Plus 10/mo)
+- Node.js 22, npm, and FFmpeg (FFmpeg is included in the worker Docker image)
+- PostgreSQL, an Upstash Redis database with REST credentials, and a Cloudflare R2 bucket
+- Google OAuth credentials; Dodo Payments credentials are only needed for paid plans
 
-## Features
+The browser uploads directly to R2. Configure the bucket CORS policy to allow your app origin, `PUT` and `GET` requests, and the `Content-Type` header. Expose the bucket through a public R2 URL for playback; playback assets must be accessible from the browser. Set the Google OAuth redirect URI to `<app-url>/api/auth/callback/google`.
 
-- Google sign-in (Better Auth), per-user video library
-- Drag-and-drop upload via presigned R2 URLs, client-side progress
-- User-selectable output renditions per video (defaults to all four)
-- Background FFmpeg transcoding → adaptive HLS + master playlist, accurate `RESOLUTION` metadata
-- Auto thumbnails (first frame) and sprite thumbnail track (`thumbnails.vtt`)
-- Jobs page with live progress polling; retry-aware queue (3 attempts)
-- Public watch pages `/w/[id]`, view counts, likes, share links
-- Monthly upload quotas, Dodo Payments checkout (Plus)
+## Run locally
 
-## Architecture
+1. Copy `web/.env.example` to `web/.env` and `worker/.env.example` to `worker/.env`. Fill in the credentials. Set the same `R2_BUCKET`, Upstash credentials, and a long random `WORKER_SHARED_SECRET` in both files. Set both public R2 URLs to your bucket's public base URL. `R2_CLIENT_URL` is the S3 endpoint (`https://<account-id>.r2.cloudflarestorage.com`); the worker takes the account ID separately. The web and worker secret-key variable names differ as shown in the examples.
+2. Install dependencies and apply the database migrations:
 
-```mermaid
-flowchart LR
-    U[User Browser] --> W[Next.js Web App]
-    U -->|presigned PUT| R2[(Cloudflare R2)]
-    W --> DB[(PostgreSQL)]
-    W -->|LPUSH job| RS[(Upstash Redis)]
-    W -->|checkout| DP[Dodo Payments]
-    RS -->|RPOP job| WK[Worker + FFmpeg]
-    WK -->|download raw_videos/| R2
-    WK -->|PUT HLS + thumb| R2
-    WK -->|delete raw| R2
-    WK -->|status callback| W
-    U -->|GET HLS| R2
-    W --> DB
+   ```sh
+   npm install
+   npm --prefix web install
+   npm --prefix worker install
+   cd web
+   npx prisma migrate deploy
+   cd ..
+   ```
+
+3. Start both processes with `npm run dev`, then open `http://localhost:3000`. Or run `npm run dev:web` and `npm run dev:worker` in separate terminals. The worker needs `ffmpeg` and `ffprobe` on its PATH.
+
+For billing, configure `DODO_PAYMENTS_API_KEY`, `DODO_PREMIUM_PRODUCT_ID`, and `WEBHOOK_SECRET_KEY`, and point the Dodo webhook to `<app-url>/api/billing/dodo/webhook`.
+
+## Deploy
+
+Deploy the web app from `web/` to a Node-compatible host, set the web environment variables, and run `npx prisma migrate deploy` against the production database. Set `NEXT_PUBLIC_APP_URL` to the deployed origin and register its Google callback and R2 CORS origin.
+
+Deploy the worker as a **long-running service**, not a serverless function. On a Docker host such as Railway, use `worker/` as the build context and its Dockerfile. Set the variables from `worker/.env.example`, including `BACKEND_URL` as the deployed web origin and the same `WORKER_SHARED_SECRET` as the web app. The worker validates required variables at startup and needs writable temporary disk space for the source and encoded files. Configure automatic restarts.
+
+To run the same image locally:
+
+```sh
+docker build -t vidora-worker ./worker
+docker run --env-file ./worker/.env --restart unless-stopped vidora-worker
 ```
 
-### Services
+When Docker runs on your own computer, `localhost` inside the container refers to the container itself; use a web URL reachable from the container for `BACKEND_URL` (for example, `http://host.docker.internal:3000` on Docker Desktop). Start the web app first, then upload a short video and check the Tasks page and worker logs through to playback.
 
-| Piece | Role |
-| --- | --- |
-| `web/` | Next.js App Router app. Auth, quotas, upload initiation, dashboards, watch pages. API via Hono mounted at `/api`. |
-| `worker/` | Long-running Node service. Pops queue jobs, downloads sources, runs FFmpeg, uploads HLS assets, sprites and thumbnails to R2, reports progress back. |
-| PostgreSQL + Prisma | Users, sessions, and video metadata. |
-| Upstash Redis | Job queue (`video-queue`), delayed retry set, transient progress cache. |
-| Cloudflare R2 | All media: raw `raw_videos/` intake, HLS assets, sprites, thumbnails — served publicly. |
-| Dodo Payments | Plus plan checkout + webhook → grants quota bump. |
+## How it works
 
-### Upload → Playback flow
+1. The browser uploads a source file to R2 with a presigned URL; the web app creates a video record and queues a job.
+2. The worker downloads the source, produces the selected HLS renditions and thumbnails, uploads them to R2, and reports progress to the web app. Failed jobs are retried; an expired in-flight lease can be recovered by a worker.
+3. The library shows processing status and links to playback. Watch pages require a signed-in session.
 
-1. User signs in; frontend requests a short-lived presigned PUT URL and uploads the raw file straight to R2 (`raw_videos/{id}.{ext}`).
-2. `POST /api/upload` validates, applies quota, creates the video row (with chosen renditions), and `LPUSH`es a job.
-3. Worker `RPOP`s the job, downloads the raw from `raw_videos/` via R2, transcodes selected renditions, builds the master playlist + sprites, and PUTs everything to R2 (`{id}/...`).
-4. Worker deletes the raw `raw_videos/{id}.{ext}` object from R2 once transcoding succeeds.
-5. Worker reports progress via `POST /api/status/:id` (shared-secret header). Failed jobs retry with exponential delay up to 3 times.
-6. `/tasks` polls status; `/w/[id]` streams via HLS once `status = done`.
+## Troubleshooting
 
-### API surface (all under `/api`)
+- **Worker exits at startup:** check the named missing or invalid variables in its logs. `BACKEND_URL` and the Upstash REST URL must be HTTP(S) URLs.
+- **Jobs stay pending:** check that the worker is running and both services use the same Upstash database and R2 bucket.
+- **Processing cannot report status:** verify that the worker can reach `BACKEND_URL` and that both shared secrets match.
+- **Upload or playback fails in the browser:** check R2 CORS, the public bucket URL, and access to the objects. Check the browser's network response and worker logs for details.
 
-- `GET` `POST` `/auth/*` — Better Auth
-- `POST /upload` — create record + enqueue job
-- `GET`/`POST /upload/p/:id` — presigned R2 PUT URL
-- `GET /videos` · `PATCH`/`DELETE /videos/:id`
-- `POST /videos/:id/view | like | share`
-- `GET` `POST /status/:id` — progress read + worker callback
-- `GET /quota` · `GET /billing/checkout` · `POST /billing/dodo/webhook`
-- `POST /delete`
-
-## Stack
-
-Next.js 16 · React 19 · TypeScript · Hono · Better Auth · Prisma + PostgreSQL · Upstash Redis · Cloudflare R2 · FFmpeg · TanStack Query · Video.js · Tailwind CSS
-
-## Local Development
-
-```bash
-# 1. install (Bun works too)
-npm install
-npm --prefix web install
-npm --prefix worker install
-
-# 2. db
-cd web && npx prisma generate && npx prisma migrate dev
-```
-
-### Env vars
-
-`web/.env` (see `web/.env.example`):
-
-```env
-DATABASE_URL=            UPSTASH_REDIS_REST_URL=   UPSTASH_REDIS_REST_TOKEN=
-R2_ACCESS_KEY_ID=        R2_ACCESS_KEY_SECRET=     R2_CLIENT_URL=          R2_PUBLIC_URL=
-NEXT_PUBLIC_R2_PUBLIC_URL=  GOOGLE_CLIENT_ID=       GOOGLE_CLIENT_SECRET=
-AUTH_SECRET=             WORKER_SHARED_SECRET=
-DODO_PAYMENTS_API_KEY=   WEBHOOK_SECRET_KEY=       PREMIUM_PRODUCT_ID=     NEXT_PUBLIC_APP_URL=
-```
-
-`worker/.env` (see `worker/.env.example`):
-
-```env
-CLOUDFLARE_ACCOUNT_ID=   R2_ACCESS_KEY_ID=      R2_SECRET_ACCESS_KEY=
-UPSTASH_REDIS_REST_URL=  UPSTASH_REDIS_REST_TOKEN=   BACKEND_URL=http://localhost:3000
-WORKER_SHARED_SECRET=
-```
-
-`WORKER_SHARED_SECRET` must match in both services to protect the status callback.
-
-### Run
-
-```bash
-npm --prefix web run dev      # http://localhost:3000
-npm --prefix worker run dev   # consumes jobs (requires FFmpeg)
-```
-
-Root scripts: `npm run dev` runs both; `npm run build:web|worker`, `npm run lint:web`, `npm run typecheck:worker`.
-
-## Deployment
-
-- **Web** → Vercel (root dir `web`, build `npm run build`). Needs Node runtime for Prisma + auth.
-- **Worker** → Railway or any Docker host using `worker/Dockerfile` (installs FFmpeg). Restart policy: always.
-- **Managed deps** → Postgres, Upstash Redis, Cloudflare R2 (public bucket), Google OAuth, Dodo Payments.
-
-Rollout: provision services → apply `prisma migrate deploy` → deploy web (verify `/login`, sign-in, pages) → deploy worker (verify FFmpeg, Redis, callbacks) → validate one upload end-to-end.
-
-Operational notes: set strong `AUTH_SECRET` + `WORKER_SHARED_SECRET`, least-privilege R2 creds, restricted OAuth callback URLs. Log web failures, worker job lifecycle, FFmpeg/R2 failures. Worker is stateless — scale replicas freely.
-
-### Common failures
-
-- Worker can't report → check `BACKEND_URL`, `WORKER_SHARED_SECRET`, worker→web network.
-- Playback 404 → R2 upload/cert, public bucket, `R2_PUBLIC_URL`.
-- Jobs never finish → Redis creds, worker health, FFmpeg in runtime, R2 creds.
+Useful checks: `npm run lint:web`, `npm run typecheck:worker`, and `npm run build`. The web app is in `web/`; the queue consumer and Dockerfile are in `worker/`.

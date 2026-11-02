@@ -1,115 +1,57 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
+import { ArrowUpRight, Clapperboard, Layers, UploadCloud } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 const features = [
-  { id: "01", title: "Instant uploads", desc: "Drag, drop, and stream directly from the edge." },
-  { id: "02", title: "Automated HLS pipeline", desc: "Adaptive bitrate streaming with MP4 fallback outputs." },
-  { id: "03", title: "Developer-focused APIs", desc: "Integrate playback surfaces with secure sharing URLs." },
+  { icon: UploadCloud, title: "Upload once", description: "Send your video straight from your browser and choose the resolutions you need." },
+  { icon: Layers, title: "Ready for every screen", description: "Vidora turns your video into adaptive streams in the background." },
+  { icon: Clapperboard, title: "Keep it together", description: "Find your videos, track processing, and copy playback links from one library." },
 ];
 
 export default async function LandingPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession({ headers: await headers() });
+  const destination = session?.user ? "/home" : "/login";
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground antialiased font-sans flex flex-col justify-between">
-      {/* Upper Border Accent */}
-      <div className="h-[2px] w-full bg-foreground opacity-10" />
+    <div className="min-h-screen bg-[#f5f7fb] text-[#17233a]">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 sm:px-10">
+        <Link href="/" className="flex items-center gap-2.5 text-lg font-bold tracking-tight">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#284fc4] text-white"><Clapperboard className="h-4 w-4" /></span>
+          vidora
+        </Link>
+        <Link href={destination} className="rounded-full border border-[#cbd5e6] bg-white px-5 py-2 text-sm font-medium hover:border-[#284fc4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#284fc4]">
+          {session?.user ? "Open library" : "Sign in"}
+        </Link>
+      </header>
 
-      <div className="mx-auto max-w-4xl w-full px-6 py-8 flex-1 flex flex-col justify-between">
-        {/* Header */}
-        <header className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            {/* Minimalist Monochrome Triangle Logo */}
-            <div className="w-5 h-5 bg-foreground" style={{ clipPath: "polygon(50% 10%, 10% 90%, 90% 90%)" }} />
-            <span className="font-semibold text-sm tracking-tight text-foreground">vidora</span>
-          </Link>
-
-          {session?.user ? (
-            <Button render={<Link href="/home" />} size="sm" variant="outline" nativeButton={false}>
-              Dashboard
-            </Button>
-          ) : (
-            <Button render={<Link href="/login" />} size="sm" variant="outline" nativeButton={false}>
-              Login
-            </Button>
-          )}
-        </header>
-
-        {/* Hero Section */}
-        <section className="mt-20 md:mt-28 max-w-2xl">
-          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground leading-[1.1]">
-            Video hosting designed for developers.
-          </h1>
-
-          <p className="mt-4 text-sm md:text-base text-muted-foreground leading-relaxed">
-            Upload, transcode, and distribute video content with a high-contrast,
-            ultra-minimalist dashboard. Fast HLS conversion with shareable playback surfaces.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            {session?.user ? (
-              <Button render={<Link href="/upload" />} size="default" nativeButton={false}>
-                Start Uploading
-              </Button>
-            ) : (
-              <Button render={<Link href="/login" />} size="default" nativeButton={false}>
-                Get Started
-              </Button>
-            )}
-
-            {session?.user && (
-              <Button render={<Link href="/home" />} variant="outline" size="default" nativeButton={false}>
-                View Dashboard
-              </Button>
-            )}
-          </div>
-        </section>
-
-        {/* Preview Container */}
-        <section className="mt-16 border border-border bg-muted/20 rounded-lg p-2 overflow-hidden aspect-[21/9] flex items-center justify-center relative">
-          <div className="absolute inset-0 bg-radial-gradient from-foreground/[0.03] to-transparent" />
-          <div className="text-center relative z-10 flex flex-col items-center gap-2">
-            <div className="h-10 w-10 flex items-center justify-center rounded-full border border-border bg-background shadow-xs text-foreground/80 hover:text-foreground hover:scale-105 transition-all">
-              <Play className="h-4.5 w-4.5 fill-current ml-0.5" />
-            </div>
-            <span className="text-[10px] uppercase tracking-wider font-mono text-muted-foreground">Demo Playback</span>
-          </div>
-        </section>
-
-        {/* Features Grid */}
-        <section className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border pt-12">
-          {features.map((f) => (
-            <div key={f.id} className="space-y-2">
-              <div className="font-mono text-xs text-muted-foreground">{f.id} //</div>
-              <h3 className="font-semibold text-sm text-foreground tracking-tight">{f.title}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">{f.desc}</p>
-            </div>
-          ))}
-        </section>
-      </div>
-
-      {/* Footer */}
-      <footer className="border-t border-border bg-muted/10">
-        <div className="mx-auto max-w-4xl px-6 py-6 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 bg-muted-foreground/80" style={{ clipPath: "polygon(50% 10%, 10% 90%, 90% 90%)" }} />
-            <span>© {new Date().getFullYear()} vidora. Built on Vercel aesthetics.</span>
-          </div>
-          <div className="flex gap-6">
-            <Link href="/home" className="hover:text-foreground transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/upload" className="hover:text-foreground transition-colors">
-              Upload
+      <main className="mx-auto max-w-6xl px-6 sm:px-10">
+        <section className="grid items-center gap-12 pb-20 pt-14 md:grid-cols-[1fr_1fr] md:gap-16 md:pb-28 md:pt-24">
+          <div>
+            <p className="mb-5 text-sm font-semibold text-[#284fc4]">Your video library, ready to play</p>
+            <h1 className="max-w-xl text-5xl font-semibold leading-[1.06] tracking-[-0.045em] sm:text-6xl">A better home for your videos.</h1>
+            <p className="mt-6 max-w-md text-lg leading-8 text-[#59677e]">Upload your video, let Vidora prepare it for streaming, and share it when it?s ready.</p>
+            <Link href={session?.user ? "/upload" : "/login"} className="mt-8 inline-flex items-center gap-3 rounded-full bg-[#284fc4] px-6 py-3.5 text-sm font-semibold text-white hover:bg-[#1f3fa2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#284fc4]">
+              {session?.user ? "Upload a video" : "Get started"} <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
-        </div>
-      </footer>
+          <div aria-hidden="true" className="relative rounded-2xl bg-[#18284a] p-4 shadow-2xl shadow-[#243a6b]/20 sm:p-6">
+            <div className="flex items-center justify-between pb-4 text-xs text-blue-100/70"><span>Vidora library</span><span>Ready to share</span></div>
+            <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-[#526dab]">
+              <div className="absolute -bottom-20 -left-8 h-56 w-56 rounded-full bg-[#7894cb]" />
+              <div className="absolute -right-8 -top-20 h-56 w-56 rounded-full border-[32px] border-[#9eb5df]/50" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white/95 shadow-lg"><span className="ml-1 h-0 w-0 border-y-[9px] border-l-[14px] border-y-transparent border-l-[#284fc4]" /></div>
+            </div>
+            <div className="flex items-center justify-between pt-5 text-sm text-white"><span>Made for the moment</span><span className="rounded-full bg-[#d1e6d9] px-3 py-1 text-xs font-medium text-[#21583b]">Ready</span></div>
+          </div>
+        </section>
+        <section className="border-t border-[#dce3ee] py-14 sm:py-20">
+          <div className="grid gap-10 md:grid-cols-3 md:gap-12">
+            {features.map(({ icon: Icon, title, description }) => <div key={title}><Icon className="mb-5 h-6 w-6 text-[#284fc4]" /><h2 className="text-lg font-semibold">{title}</h2><p className="mt-2 max-w-sm text-sm leading-6 text-[#59677e]">{description}</p></div>)}
+          </div>
+        </section>
+      </main>
+      <footer className="border-t border-[#dce3ee]"><div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-7 text-sm text-[#59677e] sm:px-10"><span>? {new Date().getFullYear()} Vidora</span><Link href={destination} className="hover:text-[#284fc4]">{session?.user ? "Your library" : "Sign in"}</Link></div></footer>
     </div>
   );
 }

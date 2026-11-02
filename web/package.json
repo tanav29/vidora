@@ -9,8 +9,8 @@
     "postinstall": "npm run generate",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "migrate": "bunx prisma migrate dev",
-    "generate": "bunx prisma generate"
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1083.0",
