@@ -10,6 +10,7 @@ import type { AuthVariables } from "@/lib/hono-auth";
 const workerStatusSchema = z.object({
   status: z.enum(["pending", "processing", "done", "failed"]),
   progress: z.number().int().min(0).max(100).optional(),
+  failure: z.object({ id: z.string().uuid(), attempt: z.number().int().min(1), reason: z.string().max(2000) }).optional(),
 });
 
 function isWorkerAuthorized(req: Request) {
@@ -67,9 +68,15 @@ statusRoutes.post(
       body.progress ??
       (body.status === "done" ? 100 : body.status === "failed" ? video.progress : 0);
 
-    await db.video.update({
-      where: { id },
-      data: { status: body.status, progress },
+    await db.$transaction(async (tx) => {
+      await tx.video.update({ where: { id }, data: { status: body.status, progress } });
+      if (body.failure) {
+        await tx.jobEvent.upsert({
+          where: { id: body.failure.id },
+          create: { id: body.failure.id, videoId: id, kind: "failure", attempt: body.failure.attempt, reason: body.failure.reason },
+          update: {},
+        });
+      }
     });
 
     await redis.set(`status:${id}`, progress, { ex: 60 * 60 * 24 });

@@ -1,4 +1,8 @@
 import { Hono } from "hono";
+import { HeadObjectCommand } from "@aws-sdk/client-s3";
+import S3 from "@/lib/s3";
+import { R2_BUCKET } from "@/lib/r2";
+import { publishJob } from "@/lib/queue";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 
@@ -34,6 +38,47 @@ videos.get("/", async (c) => {
   return c.json(videos, {
     headers: { "Cache-Control": "private, no-store" },
   });
+});
+
+// The dashboard includes completed jobs so past failures remain visible.
+videos.get("/jobs", async (c) => {
+  const user = c.get("user")!;
+  const jobs = await db.video.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, status: true, progress: true, createdAt: true,
+      jobEvents: { orderBy: { createdAt: "desc" }, select: { id: true, kind: true, attempt: true, reason: true, createdAt: true } } },
+  });
+  return c.json(jobs, { headers: { "Cache-Control": "private, no-store" } });
+});
+
+videos.post("/:id/retry", async (c) => {
+  const user = c.get("user")!;
+  const id = c.req.param("id");
+  const video = await db.video.findFirst({ where: { id, userId: user.id } });
+  if (!video) return c.json({ error: "Not found" }, 404);
+  if (video.status !== "failed") return c.json({ error: "Only failed jobs can be retried" }, 409);
+  const match = video.s3Key?.match(/^raw_videos\/([^/]+)\.(mp4|mov|avi|mkv|webm)$/i);
+  if (!match || match[1] !== id) return c.json({ error: "The source file is unavailable for retry" }, 409);
+  try {
+    await S3.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: video.s3Key! }));
+  } catch (error) {
+    console.error("Source check failed:", error);
+    return c.json({ error: "Could not access the source file. Check storage and try again." }, 409);
+  }
+  // Claim before publishing so concurrent operator requests cannot queue duplicates.
+  const claim = await db.video.updateMany({ where: { id, userId: user.id, status: "failed" }, data: { status: "pending", progress: 0 } });
+  if (!claim.count) return c.json({ error: "This job is already being retried" }, 409);
+  try {
+    await redis.set(`status:${id}`, 0, { ex: 60 * 60 * 24 });
+    await publishJob({ name: id, ext: match[2].toLowerCase(), resolutions: video.resolutions, attempts: 0, runId: crypto.randomUUID() });
+  } catch (error) {
+    console.error("Retry publish failed:", error);
+    await db.video.updateMany({ where: { id, status: "pending" }, data: { status: "failed" } });
+    return c.json({ error: "Could not queue the retry. Try again." }, 503);
+  }
+  await db.jobEvent.create({ data: { id: crypto.randomUUID(), videoId: id, kind: "retry" } });
+  return c.json({ ok: true });
 });
 
 const updateSchema = z.object({

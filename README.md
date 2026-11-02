@@ -49,7 +49,9 @@ When Docker runs on your own computer, `localhost` inside the container refers t
 
 1. The browser uploads a source file to R2 with a presigned URL; the web app creates a video record and queues a job.
 2. The worker downloads the source, produces the selected HLS renditions and thumbnails, uploads them to R2, and reports progress to the web app. Failed jobs are retried; an expired in-flight lease can be recovered by a worker.
-3. The library shows processing status and links to playback. Watch pages require a signed-in session.
+3. The Processing page shows each video's status, progress, and recorded failure and retry history. Failed jobs can be retried by their owner after the source is accessible. Older failures may not have recorded details. Watch pages require a signed-in session.
+
+The worker keeps the source in R2 through processing failures and deletes it only after the outputs are uploaded and completion is confirmed. Explicitly deleting a video also deletes its source. Automatic retries wait 30 seconds and run up to three times after the initial attempt; an operator retry starts a new retry cycle. If queueing an upload fails, its source is retained and the failed job can be retried from Processing. Recording worker failures requires the web app to be reachable.
 
 ## Troubleshooting
 

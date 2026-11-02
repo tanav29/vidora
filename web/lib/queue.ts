@@ -7,6 +7,7 @@ export type QueueJob = {
   ext: string;
   resolutions?: string[];
   attempts?: number;
+  runId?: string;
 };
 
 function getRedis() {

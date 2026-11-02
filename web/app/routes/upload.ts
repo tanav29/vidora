@@ -4,7 +4,6 @@ import { zValidator } from "@hono/zod-validator";
 
 import db from "@/lib/db";
 import { publishJob } from "@/lib/queue";
-import { deleteRawVideo } from "@/lib/r2";
 import { authMiddleware, requireAuth } from "@/lib/hono-auth";
 import type { AuthVariables } from "@/lib/hono-auth";
 
@@ -106,12 +105,10 @@ upload.post(
       });
     } catch (error) {
       console.error("Failed to create video record:", error);
-      await deleteRawVideo(s3Key);
       return c.json({ error: "Failed to create video record" }, 500);
     }
 
     if (quotaRejected) {
-      await deleteRawVideo(s3Key);
       return c.json(
         { error: "Monthly upload limit reached", ...quotaRejected },
         429,
@@ -125,10 +122,8 @@ upload.post(
 
       await db.video.update({
         where: { id },
-        data: { status: "failed" },
+        data: { status: "failed", jobEvents: { create: { id: crypto.randomUUID(), kind: "failure", reason: "Could not queue the upload. Retry when the queue is available." } } },
       });
-
-      await deleteRawVideo(body.s3Key);
 
       return c.json(
         { error: "Upload saved, but transcoding could not be queued" },

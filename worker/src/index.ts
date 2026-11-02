@@ -1,4 +1,5 @@
 import { spawn, execSync } from "child_process";
+import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 import "dotenv/config";
@@ -100,12 +101,14 @@ async function encodeResolution(
       "-start_number",
       "0",
       playlistPath,
-    ], { stdio: "ignore" });
+    ], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    ffmpeg.stderr.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-1500); });
 
     ffmpeg.on("error", (err) => reject(new Error(`ffmpeg exited with error: ${err}`)));
     ffmpeg.on("close", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}`));
+      else reject(new Error(`ffmpeg exited with code ${code}: ${stderr.trim()}`));
     });
   });
 }
@@ -361,12 +364,14 @@ interface Job {
   ext: string;
   resolutions?: string[];
   attempts?: number;
+  runId?: string;
 }
 
 async function reportStatus(
   jobId: string,
   status: JobStatus,
   progress?: number,
+  failure?: { id: string; attempt: number; reason: string },
 ): Promise<boolean> {
   const nextProgress =
     progress ?? (status === "done" ? 100 : status === "pending" ? 0 : undefined);
@@ -384,7 +389,7 @@ async function reportStatus(
     try {
       await axios.post(
         `${process.env.BACKEND_URL}/api/status/${jobId}`,
-        { status, progress: nextProgress },
+        { status, progress: nextProgress, failure },
         headers ? { headers } : undefined,
       );
       return true;
@@ -422,6 +427,7 @@ function parseJob(raw: string): Job | null {
           parsed.resolutions.every((r: unknown) => typeof r === "string")
             ? parsed.resolutions
             : undefined,
+        runId: typeof parsed.runId === "string" ? parsed.runId : undefined,
         attempts:
           typeof (parsed as { attempts?: unknown }).attempts === "number" &&
           Number.isFinite((parsed as { attempts?: number }).attempts ?? NaN)
@@ -531,7 +537,11 @@ async function processJob(job: Job, raw: string) {
           "Completion could not be confirmed with the web app; keeping raw for retry",
         );
       }
-      await deleteFromR2(rawKey);
+      try {
+        await deleteFromR2(rawKey);
+      } catch (error) {
+        console.error(`Source cleanup failed for ${name}; transcoding is complete:`, error);
+      }
     } catch (error) {
       console.error(`Error uploading to R2:`, error);
       throw error;
@@ -571,28 +581,19 @@ async function startWorker() {
       await completeJob(raw);
       console.log("Job processed:", job.name);
     } catch (err) {
-      await completeJob(raw);
-
-      if (err instanceof PermanentlyFailedError) {
-        console.error(
-          `Job ${job.name} permanently failed: ${err.message}`,
-        );
-        await reportStatus(job.name, "failed");
+      const attempts = job.attempts ?? 0;
+      const terminal = err instanceof PermanentlyFailedError || attempts >= MAX_RETRIES;
+      const reason = (err instanceof Error ? err.message : String(err)).slice(0, 2000);
+      const reported = await reportStatus(job.name, terminal ? "failed" : "pending", 0, {
+        id: randomUUID(), attempt: attempts + 1, reason,
+      });
+      if (!reported) {
+        // Keep the lease so recovery can try again if the web app is unavailable.
         continue;
       }
-
-      const attempts = job.attempts ?? 0;
-      console.error(
-        `Job ${job.name} failed (attempt ${attempts + 1}/${MAX_RETRIES}):`,
-        err,
-      );
-
-      if (attempts < MAX_RETRIES) {
-        await scheduleRetry({ ...job, attempts: attempts + 1 });
-      } else {
-        await reportStatus(job.name, "failed");
-        console.error(`Job ${job.name} exhausted retries.`);
-      }
+      if (!terminal) await scheduleRetry({ ...job, attempts: attempts + 1 });
+      await completeJob(raw);
+      console.error(`Job ${job.name} ${terminal ? "failed" : "scheduled for retry"}: ${reason}`);
     }
   }
 }

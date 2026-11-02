@@ -22,6 +22,7 @@ model Video {
   updatedAt DateTime @updatedAt
 
   likesReceived Like[]
+  jobEvents JobEvent[]
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
@@ -99,4 +100,16 @@ model Verification {
   updatedAt  DateTime @db.Timestamptz(3)
 
   @@index([identifier])
+}
+
+model JobEvent {
+  id String @id
+  videoId String
+  kind String
+  attempt Int?
+  reason String?
+  createdAt DateTime @default(now())
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
 }
