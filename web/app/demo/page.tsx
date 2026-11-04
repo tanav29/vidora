@@ -1,0 +1,31 @@
+import Link from "next/link";
+import { ArrowLeft, ArrowUpRight, Check, Clapperboard, Clock3, HardDrive, Play, UploadCloud, Waves } from "lucide-react";
+
+const videos = [
+  { title: "Coastline at golden hour", detail: "4K · 02:18 · 3 renditions", date: "Today", style: "from-orange-200 via-rose-300 to-violet-500", state: "Ready" },
+  { title: "A quiet morning in Kyoto", detail: "1080p · 01:42 · 3 renditions", date: "Yesterday", style: "from-emerald-200 via-teal-400 to-sky-600", state: "Ready" },
+  { title: "Weekend field notes", detail: "Source · 00:56", date: "Yesterday", style: "from-amber-100 via-orange-300 to-red-500", state: "Processing" },
+];
+
+export const metadata = { title: "Product tour · Vidora", description: "Explore Vidora's video library and streaming workflow with sample data." };
+
+export default function DemoPage() {
+  return <main className="min-h-screen bg-[#f5f7fb] text-[#17233a]">
+    <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 sm:px-10">
+      <Link href="/" className="flex items-center gap-2.5 text-lg font-bold tracking-tight"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#284fc4] text-white"><Clapperboard className="h-4 w-4" /></span>vidora</Link>
+      <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-[#59677e] hover:text-[#284fc4]"><ArrowLeft className="h-4 w-4" /> Back to overview</Link>
+    </header>
+    <div className="mx-auto max-w-6xl px-6 pb-16 sm:px-10">
+      <div className="mb-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#cfd9f2] bg-[#edf2ff] px-4 py-3 text-sm text-[#294585]"><span><strong>Interactive product tour</strong> <span className="text-[#52668f]">· Sample data, no services connected</span></span><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold">DEMO MODE</span></div>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-[#284fc4]">YOUR WORKSPACE</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Video library</h1><p className="mt-2 text-[#59677e]">A quick look at the upload, processing, and playback workflow.</p></div><button disabled className="inline-flex cursor-not-allowed items-center gap-2 rounded-full bg-[#284fc4] px-5 py-3 text-sm font-semibold text-white opacity-90"><UploadCloud className="h-4 w-4" /> Upload video <span className="text-xs text-blue-100">(demo)</span></button></div>
+      <section className="grid gap-4 sm:grid-cols-3" aria-label="Demo workspace summary">
+        {[{ label: "Videos in library", value: "12", icon: Clapperboard }, { label: "Storage used", value: "2.4 GB", icon: HardDrive }, { label: "Ready to stream", value: "10", icon: Waves }].map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border border-[#e0e5ee] bg-white p-5"><div className="flex items-center justify-between text-sm text-[#59677e]"><span>{label}</span><Icon className="h-4 w-4 text-[#284fc4]" /></div><p className="mt-3 text-2xl font-semibold">{value}</p></div>)}
+      </section>
+      <section className="mt-10"><div className="mb-4 flex items-center justify-between"><div><h2 className="text-xl font-semibold">Recently added</h2><p className="mt-1 text-sm text-[#718096]">Sample videos show how status and playback readiness appear.</p></div><span className="text-sm text-[#59677e]">View all <ArrowUpRight className="inline h-4 w-4" /></span></div>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{videos.map((video) => <article key={video.title} className="overflow-hidden rounded-xl border border-[#e0e5ee] bg-white shadow-sm"><div className={`relative flex aspect-video items-center justify-center bg-gradient-to-br ${video.style}`}><div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(135deg, transparent 45%, white 46%, transparent 47%), linear-gradient(45deg, transparent 55%, white 56%, transparent 57%)", backgroundSize: "54px 54px" }} />{video.state === "Ready" ? <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-[#284fc4] shadow"><Play className="ml-0.5 h-5 w-5 fill-current" /></span> : <span className="relative inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-[#7a5410]"><Clock3 className="h-3.5 w-3.5" /> Encoding · 68%</span>}</div><div className="p-4"><div className="flex items-start justify-between gap-2"><div><h3 className="font-semibold">{video.title}</h3><p className="mt-1 text-xs text-[#718096]">{video.detail}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${video.state === "Ready" ? "bg-[#e6f4eb] text-[#267447]" : "bg-[#fff3d8] text-[#875c0b]"}`}>{video.state === "Ready" ? <><Check className="mr-1 inline h-3 w-3" />Ready</> : video.state}</span></div><p className="mt-4 border-t border-[#edf0f5] pt-3 text-xs text-[#8792a4]">Added {video.date}</p></div></article>)}</div>
+      </section>
+      <section className="mt-10 grid gap-6 rounded-2xl bg-[#18284a] p-6 text-white sm:grid-cols-[1fr_auto] sm:items-center sm:p-8"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">The pipeline</p><h2 className="mt-2 text-xl font-semibold">From source file to adaptive stream</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100/75">Direct browser upload → background FFmpeg worker → HLS renditions and thumbnails → shareable watch page. Queue progress and retry history stay visible while work runs.</p></div><div className="flex items-center gap-2 text-xs font-medium text-blue-100"><span className="rounded-lg bg-white/10 px-3 py-2">Upload</span><span>→</span><span className="rounded-lg bg-white/10 px-3 py-2">Transcode</span><span>→</span><span className="rounded-lg bg-white/10 px-3 py-2">Stream</span></div></section>
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-sm text-[#718096]"><span>All content on this page is illustrative and stored nowhere.</span><Link href="/" className="font-medium text-[#284fc4] hover:underline">Read project overview <ArrowUpRight className="inline h-4 w-4" /></Link></div>
+    </div>
+  </main>;
+}

@@ -28,6 +28,19 @@ The browser uploads directly to R2. Configure the bucket CORS policy to allow yo
 
 3. Start both processes with `npm run dev`, then open `http://localhost:3000`. Or run `npm run dev:web` and `npm run dev:worker` in separate terminals. The worker needs `ffmpeg` and `ffprobe` on its PATH.
 
+## Interview demo (no services required)
+
+To showcase the product before PostgreSQL, Redis, R2, or Google OAuth are configured, install only the web dependencies and run the app:
+
+```sh
+npm --prefix web install
+npm run dev:web
+```
+
+Open `http://localhost:3000/demo` (or choose **Explore demo** on the landing page). This public tour renders illustrative library, storage, and processing data without authentication or backend calls. Its upload control is intentionally disabled; uploads and processing require the configured services described above. The demo cards are not persisted and do not represent real customer data.
+
+Suggested interview walkthrough: explain the browser-to-R2 direct upload, show the processing status and retry history from the real Tasks page when services are available, then describe how the worker creates HLS renditions and the watch page plays them. The `/demo` page is suitable for a UI walkthrough when credentials are unavailable; it does not execute the upload or transcoding pipeline.
+
 For billing, configure `DODO_PAYMENTS_API_KEY`, `DODO_PREMIUM_PRODUCT_ID`, and `WEBHOOK_SECRET_KEY`, and point the Dodo webhook to `<app-url>/api/billing/dodo/webhook`.
 
 ## Deploy
