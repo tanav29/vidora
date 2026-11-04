@@ -1,3 +1,4 @@
+import { logger, jobs, jobDuration, startMetricsServer } from "./observability.js";
 import { spawn, execSync } from "child_process";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -576,10 +577,17 @@ async function startWorker() {
 
     console.log("Received:", job.name);
 
+    const started = Date.now();
+    logger.info({ event: "job.started", jobId: job.name, attempt: (job.attempts ?? 0) + 1 });
+    const heartbeat = setInterval(() => {
+      void touchJob(raw).catch(() => logger.error({ event: "job.heartbeat_failed", jobId: job.name }));
+    }, 60_000);
     try {
       await processJob(job, raw);
       await completeJob(raw);
-      console.log("Job processed:", job.name);
+      jobs.inc({ outcome: "completed" });
+      jobDuration.observe({ outcome: "completed" }, (Date.now() - started) / 1000);
+      logger.info({ event: "job.completed", jobId: job.name, durationMs: Date.now() - started });
     } catch (err) {
       const attempts = job.attempts ?? 0;
       const terminal = err instanceof PermanentlyFailedError || attempts >= MAX_RETRIES;
@@ -593,9 +601,15 @@ async function startWorker() {
       }
       if (!terminal) await scheduleRetry({ ...job, attempts: attempts + 1 });
       await completeJob(raw);
-      console.error(`Job ${job.name} ${terminal ? "failed" : "scheduled for retry"}: ${reason}`);
+      const outcome = terminal ? "failed" : "retry";
+      jobs.inc({ outcome });
+      jobDuration.observe({ outcome }, (Date.now() - started) / 1000);
+      logger.error({ event: terminal ? "job.failed" : "job.retry_scheduled", jobId: job.name, attempt: attempts + 1, durationMs: Date.now() - started });
+    } finally {
+      clearInterval(heartbeat);
     }
   }
 }
 
-startWorker();
+startMetricsServer();
+startWorker().catch((err) => { logger.fatal({ err }, "Worker stopped"); process.exitCode = 1; process.exit(1); });

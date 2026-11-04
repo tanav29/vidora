@@ -91,10 +91,12 @@ export async function completeJob(raw: string) {
 
 /** Heartbeat: extends the lease for a job still being processed. */
 export async function touchJob(raw: string) {
-  await $redis.zadd(INFLIGHT, {
-    score: Date.now() + LEASE_MS,
-    member: raw,
-  });
+  await $redis.eval(`
+    if redis.call("zscore", KEYS[1], ARGV[1]) then
+      return redis.call("zadd", KEYS[1], ARGV[2], ARGV[1])
+    end
+    return 0
+  `, [INFLIGHT], [raw, Date.now() + LEASE_MS]);
 }
 
 export async function scheduleRetry(job: QueueJob) {
@@ -104,55 +106,16 @@ export async function scheduleRetry(job: QueueJob) {
   });
 }
 
-function extractDueMembers(raw: unknown): string[] {
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return [];
-  }
-
-  if (typeof raw[0] === "string") {
-    if (raw.length % 2 === 0) {
-      const members: string[] = [];
-      for (let i = 0; i < raw.length; i += 2) {
-        members.push(raw[i]);
-      }
-      return members;
-    }
-
-    return raw as string[];
-  }
-
-  if (Array.isArray(raw[0])) {
-    return raw
-      .map((item) => item[0])
-      .filter((item): item is string => typeof item === "string");
-  }
-
-  if (typeof raw[0] === "object" && raw[0] !== null && "member" in raw[0]) {
-    return raw
-      .map((item) => (item as { member?: unknown }).member)
-      .filter((item): item is string => typeof item === "string");
-  }
-
-  return [];
-}
-
+// Move due jobs atomically so a worker crash cannot lose a claimed job.
 async function requeueDueMembers(setKey: string, limit: number) {
-  const due = await $redis.zrange(setKey, "-inf", Date.now(), {
-    byScore: true,
-    withScores: true,
-    count: limit,
-    offset: 0,
-  });
-
-  const members = extractDueMembers(due);
-  for (const member of members) {
-    const removed = await $redis.zrem(setKey, member);
-    if (removed) {
-      await $redis.lpush(QUEUE, member);
-    }
-  }
-
-  return members.length;
+  return $redis.eval(`
+    local jobs = redis.call('zrangebyscore', KEYS[1], '-inf', ARGV[1], 'LIMIT', 0, ARGV[2])
+    for _, job in ipairs(jobs) do
+      redis.call('zrem', KEYS[1], job)
+      redis.call('lpush', KEYS[2], job)
+    end
+    return #jobs
+  `, [setKey, QUEUE], [Date.now(), limit]);
 }
 
 /** Re-queues delayed retry jobs whose wait time has elapsed. */

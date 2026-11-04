@@ -74,3 +74,9 @@ The worker keeps the source in R2 through processing failures and deletes it onl
 - **Upload or playback fails in the browser:** check R2 CORS, the public bucket URL, and access to the objects. Check the browser's network response and worker logs for details.
 
 Useful checks: `npm run lint:web`, `npm run typecheck:worker`, and `npm run build`. The web app is in `web/`; the queue consumer and Dockerfile are in `worker/`.
+
+## Observability
+
+API requests and worker job lifecycle events are logged as JSON with Pino. Set `LOG_LEVEL` to control verbosity. API metrics are available at `/metrics` on each web process; worker metrics are at port 9464 by default. Metrics are process-local, so Prometheus must scrape each replica separately. Protect these endpoints using private networking or an authenticated proxy; they contain operational information.
+
+For local monitoring, start the web app and worker, setting `METRICS_HOST=0.0.0.0` on the worker so Docker can reach it, then run `docker compose -f observability/compose.yml up -d`. Open Grafana at http://localhost:3001 (initial credentials are Grafana's default `admin` / `admin`, which must be changed on first login). Prometheus is at http://localhost:9090. The sample configuration uses `host.docker.internal`; adjust targets for your deployment. Do not expose the worker metrics port publicly. On serverless web deployments, process-local scrape metrics are incomplete; use a managed telemetry collector or platform integration instead.

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
+import { observability } from "@/lib/observability";
 
 import authRoutes from "@/app/routes/auth";
 import videosRoutes from "@/app/routes/videos";
@@ -15,7 +15,20 @@ import deleteRoutes from "@/app/routes/delete";
 
 const app = new Hono().basePath("/api");
 
-app.use("*", logger());
+app.use("*", async (c, next) => {
+  const requestId = crypto.randomUUID();
+  const started = Date.now();
+  try {
+    await next();
+  } finally {
+    c.header("x-request-id", requestId);
+    const route = c.req.routePath || "unmatched";
+    observability.requests.inc({ method: c.req.method, route, status: String(c.res.status) });
+    observability.duration.observe({ method: c.req.method, route }, (Date.now() - started) / 1000);
+    observability.logger.info({ event: "http.request", requestId, method: c.req.method,
+      route, status: c.res.status, durationMs: Date.now() - started });
+  }
+});
 
 app.use(
   "/api/auth/*",
