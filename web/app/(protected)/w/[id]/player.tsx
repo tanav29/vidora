@@ -15,7 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createPlayer, Thumbnail } from "@videojs/react";
-import { MinimalVideoSkin, Video, videoFeatures } from "@videojs/react/video";
+import { HlsVideo } from "@videojs/react/media/hls-video";
+import { MinimalVideoSkin, videoFeatures } from "@videojs/react/video";
 import "@videojs/react/video/minimal-skin.css";
 
 const Player = createPlayer({ features: videoFeatures });
@@ -133,14 +134,14 @@ export const VideoJsPlayer = ({
         <MinimalVideoSkin
           className="h-full w-full"
           poster={getThumbnailUrl(id)}>
-          <Video
+          <HlsVideo
             ref={videoRef}
             autoPlay={true}
             className="h-full w-full"
             src={playbackSrc}
             playsInline>
             <track kind="metadata" label="thumbnails" src={vttUrl} default />
-          </Video>
+          </HlsVideo>
           <Thumbnail
             className="pointer-events-none absolute bottom-12 left-3 z-30 max-w-[180px]"
             time={previewTime}
